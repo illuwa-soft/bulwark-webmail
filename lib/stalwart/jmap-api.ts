@@ -31,6 +31,7 @@ export interface JmapFetchOptions {
 
 export interface JmapSessionDocument {
   apiUrl?: string;
+  downloadUrl?: string;
   capabilities?: Record<string, unknown>;
   primaryAccounts?: Record<string, string>;
   accounts?: Record<string, unknown>;

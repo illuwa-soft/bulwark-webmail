@@ -88,6 +88,8 @@ export const LITE_API_STRING_ALLOWLIST = [
   "/api/plugin-secrets",
   // stores/settings-store.ts - settingsSyncEnabled is pinned off.
   "/api/settings",
+  // lib/native-download.ts - IS_LITE returns before building this Full-only URL.
+  "/api/download",
   // Stalwart's own account discovery (lib/auth/lite-oauth.ts), not a route of this app.
   "/api/discover",
   // OAuth / SSO / pairing - Lite discovers and redeems codes in the browser
