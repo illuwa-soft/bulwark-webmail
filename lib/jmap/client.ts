@@ -26,6 +26,7 @@ import { buildEmailSort, compareEmails, hasKeywordLevels, type KeywordSortPolari
 import { toInertBlob } from "@/lib/file-preview";
 import { toStorageQuota, type JMAPQuota, type StorageQuota } from "@/lib/quota";
 import { messagePriorityHeaders, type MessagePriority } from "@/lib/message-priority";
+import { startNativeDownload } from '@/lib/native-download';
 
 // Cap for the follow-up Email/get issued when a displayed body part comes
 // back truncated at the normal 256000-byte limit (see refetchTruncatedBodyValues
@@ -8715,6 +8716,16 @@ export class JMAPClient implements IJMAPClient {
   }
 
   async downloadBlob(blobId: string, name?: string, type?: string, accountId?: string): Promise<void> {
+    // Legacy password+TOTP logins need their existing interactive fetch path.
+    if (!this.onTotpRequired && await startNativeDownload({
+      serverUrl: this.serverUrl,
+      username: this.username,
+      accountId: accountId || this.accountId,
+      blobId,
+      name,
+      type,
+    }, () => this.ping())) return;
+
     const blob = await this.fetchBlob(blobId, name, type, accountId);
     const blobUrl = URL.createObjectURL(blob);
 
