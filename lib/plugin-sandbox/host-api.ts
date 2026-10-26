@@ -50,10 +50,14 @@ import {
   doTemplatesUpdate, doVacationGet, doVacationSet,
 } from './host-api-settings';
 import {
-  doEmailArchive, doEmailGet, doEmailGetAttachment, doEmailGetRaw, doEmailList, doEmailMove, doEmailSearch, doMailboxesList,
+  doEmailArchive, doEmailGet, doEmailGetAttachment, doEmailGetRaw, doEmailList, doEmailMove, doEmailSearch, doMailboxesList, doEmailTrash,
 } from './host-api-mail';
 import { MAX_PLUGIN_FETCH_BYTES, readFileName, readMediaType, sessionClient } from './host-api-input';
-import { doComposeOpen, doComposeReply, doDraftsCreate } from './host-api-compose';
+import { doComposeOpen, doComposeReply, doDraftsCreate, doEmailSend } from './host-api-compose';
+import { doFilesCreate, doFilesUpdate, doFilesRemove } from './host-api-files';
+import { doFilesGet } from './host-api-files';
+import { currentMutationScope, applyScopedMutation } from './host-api-scoped';
+import { doEmailGetPrimary, doEmailUpdate } from './host-api-mail';
 import { doNotificationsShow } from './host-api-notify';
 import { setSectionTitle } from './section-titles';
 import { requestPanel } from './panel-requests';
@@ -97,11 +101,23 @@ const PRIVILEGED_ONLY_METHODS = new Set<string>([
 ]);
 
 export const PERM_PER_METHOD: Readonly<Record<string, Permission | null>> = {
+  // Scope is not a credential. apply delegates only a closed catalog through the normal permission gate.
+  'mutations.scope': null,
+  'mutations.apply': null,
+  'email.getPrimary': 'email:read',
+  'email.update': 'email:write',
+  'files.get': 'files:read',
   'email.query': 'email:read',
   'calendar.queryEvents': 'calendar:read',
   'contact.query': 'contacts:read',
   'files.query': 'files:read',
   'files.readText': 'files:read',
+  'files.createText': 'files:write',
+  'files.createDirectory': 'files:write',
+  'files.update': 'files:write',
+  'files.remove': 'files:write',
+  'email.trash': 'email:write',
+  'email.send': 'email:send',
   // storage is unscoped by the manifest - implicit.
   'storage.get': null,
   'storage.set': null,
@@ -1866,6 +1882,17 @@ export async function dispatchApiCall(
     case 'contact.query':
     case 'files.query': return doReadPage(plugin, method, args[0]);
     case 'files.readText': return doFilesReadText(plugin, args[0], args[1]);
+    case 'mutations.scope': return currentMutationScope(plugin);
+    case 'mutations.apply': return applyScopedMutation(plugin, args[0], args[1], args[2], (method, inner) => dispatchApiCall(plugin, method, inner));
+    case 'email.getPrimary': return doEmailGetPrimary(plugin, args[0]);
+    case 'email.update': return doEmailUpdate(plugin, args[0], args[1]);
+    case 'files.get': return doFilesGet(plugin, args[0]);
+    case 'files.createText': return doFilesCreate(plugin, false, args[0]);
+    case 'files.createDirectory': return doFilesCreate(plugin, true, args[0]);
+    case 'files.update': return doFilesUpdate(plugin, args[0], args[1]);
+    case 'files.remove': return doFilesRemove(plugin, args[0]);
+    case 'email.trash': return doEmailTrash(plugin, args[0]);
+    case 'email.send': return doEmailSend(plugin, args[0]);
     case 'proxy.fetch': return proxyFetch(plugin, args, opts?.sink ?? null);
     case 'proxy.cancel': proxyCancel(plugin, args[0]); return undefined;
     case 'proxy.connect': return proxyConnect(plugin, args);
@@ -2139,9 +2166,9 @@ export async function dispatchApiCall(
       return undefined;
     }
 
-    case 'calendar.listCalendars': return doCalendarListCalendars();
+    case 'calendar.listCalendars': return doCalendarListCalendars(args[0]);
     case 'calendar.getEvents': return doCalendarGetEvents(args[0]);
-    case 'calendar.getEvent': return doCalendarGetEvent(args[0]);
+    case 'calendar.getEvent': return doCalendarGetEvent(args[0], args[1]);
     case 'calendar.createEvent': return doCalendarCreateEvent(args[0], plugin.id);
     case 'calendar.updateEvent': return doCalendarUpdateEvent(args[0], args[1]);
     case 'calendar.deleteEvent': return doCalendarDeleteEvent(args[0]);
@@ -2167,11 +2194,11 @@ export async function dispatchApiCall(
     case 'email.get': return doEmailGet(args[0]);
     case 'email.list': return doEmailList(args[0]);
     case 'email.search': return doEmailSearch(args[0]);
-    case 'mailboxes.list': return doMailboxesList();
+    case 'mailboxes.list': return doMailboxesList(args[0]);
     case 'email.getAttachment': return doEmailGetAttachment(args[0], args[1]);
     case 'email.getRaw': return doEmailGetRaw(args[0]);
-    case 'email.move': return doEmailMove(plugin.id, args[0], args[1]);
-    case 'email.archive': return doEmailArchive(plugin.id, args[0]);
+    case 'email.move': return doEmailMove(plugin, args[0], args[1]);
+    case 'email.archive': return doEmailArchive(plugin, args[0]);
 
     case 'compose.open': return doComposeOpen(plugin, args[0]);
     case 'compose.reply': return doComposeReply(plugin, args[0], args[1]);

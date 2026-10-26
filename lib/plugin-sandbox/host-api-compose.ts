@@ -12,6 +12,8 @@ import { locales } from '@/i18n/routing';
 import { useIdentityStore } from '@/stores/identity-store';
 import { sanitizePluginBodyHtml } from '../email-sanitization';
 import { htmlToPlainText } from '../html-to-text';
+import { emailHooks } from '../plugin-hooks';
+import { writeScope } from './host-api-write-scope';
 import {
   readAddressList, readBlobRefs, readBoolean, readId, readObject, readString, sessionClient, withinRate,
   type PluginBlobRef,
@@ -163,4 +165,34 @@ export async function doDraftsCreate(plugin: InstalledPlugin, input: unknown): P
     identity.name || undefined,
     message.html,
   );
+}
+
+/** Submits a bounded message through the same guard/takeover/transform hooks as the composer. */
+export async function doEmailSend(plugin: InstalledPlugin, input: unknown) {
+  const method = 'email.send';
+  const data = readObject(input, method, 'message', ['to', 'cc', 'bcc', 'subject', 'body']);
+  const message = readMessage(method, data);
+  if (!message.to.length && !message.cc.length && !message.bcc.length) throw new Error(`${method}: a recipient is required`);
+  const scope = writeScope(plugin, 'email:send', method);
+  const identities = await scope.client.getIdentities();
+  scope.check();
+  const preferred = useIdentityStore.getState().preferredPrimaryId;
+  const identity = identities.find((entry) => entry.id === preferred) ?? identities[0];
+  if (!identity) throw new Error(`${method}: the account has no sender identity`);
+  if (!withinRate('email.send', plugin.id, 5)) throw new Error(`${method}: at most 5 submissions a minute`);
+  const outgoing = { to: message.to, cc: message.cc, bcc: message.bcc, subject: message.subject, htmlBody: '', textBody: message.text, identityId: identity.id, fromEmail: identity.email, attachments: [] };
+  const guard = await emailHooks.onBeforeEmailSend.interceptOutcome(outgoing);
+  scope.check();
+  if (guard !== 'allowed') throw new Error(`${method}: send guard stopped the message`);
+  const takeover = await emailHooks.onComposeSend.takeOver({ ...outgoing, fromName: identity.name });
+  scope.check();
+  if (takeover === 'handled') return { status: 'handled', from: identity.email };
+  if (takeover !== 'default') throw new Error(`${method}: send takeover stopped the message`);
+  const transformed = await emailHooks.onTransformOutgoingEmail.transform(outgoing);
+  scope.check();
+  const checked = readMessage(method, { to: transformed.to, cc: transformed.cc, bcc: transformed.bcc, subject: transformed.subject, body: transformed.htmlBody || transformed.textBody, isHtml: Boolean(transformed.htmlBody) });
+  const result = await scope.client.sendEmail(checked.to, checked.subject, checked.text, checked.cc, checked.bcc, identity.id, identity.email, undefined, identity.name, checked.html);
+  scope.check();
+  void emailHooks.onAfterEmailSend.emit({ emailId: result.emailId, submissionId: result.emailSubmissionId, to: checked.to, cc: checked.cc, bcc: checked.bcc, subject: checked.subject, scheduledFor: result.sendAt });
+  return { status: result.scheduled ? 'scheduled' : 'submitted', from: identity.email, emailId: result.emailId, submissionId: result.emailSubmissionId, sendAt: result.sendAt, filingFailed: Boolean(result.filingError), rejectedRecipients: (result.rejectedRecipients ?? []).map((entry) => entry.email) };
 }

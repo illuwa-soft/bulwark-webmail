@@ -30,6 +30,7 @@ import type {
 } from './protocol';
 import { themeSnapshotToCSS, type ThemeSnapshot } from './host-theme';
 import { pluginUiKit, SlotPropsContext } from './ui-kit';
+import { createMutationApi } from './runtime-mutations';
 import { initFloatingDropdownBridge, dispatchFloatingDropdownEvent } from './ui-kit/floating-dropdown-bridge';
 import { interpolate, lookup, textDirection, type LocaleTables } from './plugin-i18n';
 import { isFillableSlot, isInlineSlot, MAX_INLINE_SLOT_WIDTH } from './slot-layout';
@@ -366,6 +367,7 @@ function buildPluginApi(manifest: PluginManifest) {
       },
     },
     /** The app the plugin runs in: product, the administrator's name for it, version, edition. No permission needed. */
+    mutations: createMutationApi(callApi),
     app: {
       getInfo: () => callApi('app.getInfo', []) as Promise<AppInfoView>,
       /** Settings matching a query (the user's language or English): page, label, description. No permission needed. */
@@ -470,6 +472,12 @@ function buildPluginApi(manifest: PluginManifest) {
     files: {
       query: (options?: FileQueryOptions) => callApi('files.query', [options]) as Promise<FileQueryPage>,
       readText: (id: string, options?: { maxBytes?: number }) => callApi('files.readText', [id, options], NETWORK_API_TIMEOUT_MS) as Promise<FileText>,
+      /** Creates at most 64 KiB UTF-8 in the primary FileNode account. Needs files:write. */
+      createText: (input: import('../plugin-types').PluginTextFileInput) => callApi('files.createText', [input], NETWORK_API_TIMEOUT_MS) as Promise<import('../plugin-types').FileResourceView>,
+      createDirectory: (input: import('../plugin-types').PluginDirectoryInput) => callApi('files.createDirectory', [input]) as Promise<import('../plugin-types').FileResourceView>,
+      update: (id: string, patch: import('../plugin-types').PluginFilePatch) => callApi('files.update', [id, patch]) as Promise<import('../plugin-types').FileResourceView>,
+      /** Non-recursive: the server refuses a directory with children. Needs files:write. */
+      remove: (id: string) => callApi('files.remove', [id]) as Promise<{ id: string; deleted: true }>,
     },
     contacts: {
       query: (options?: ContactQueryOptions) => callApi('contact.query', [options]) as Promise<ContactQueryPage>,
@@ -643,11 +651,18 @@ function buildPluginApi(manifest: PluginManifest) {
        * open one.
        */
       get: (emailId: string) => callApi('email.get', [emailId]) as Promise<EmailReadView | null>,
+      getPrimary: (emailId: string) => callApi('email.getPrimary', [emailId]) as Promise<EmailReadView | null>,
       /**
        * Move messages (at most 100) into a folder of the account, like the
        * user would; the move hooks run. 20 moves a minute. Needs email:write.
        */
       move: (emailIds: string[], mailboxId: string) => callApi('email.move', [emailIds, mailboxId]) as Promise<void>,
+      update: (emailIds: string[], changes: { isRead?: boolean; isFlagged?: boolean }) => callApi('email.update', [emailIds, changes]) as Promise<void>,
+      /** Moves at most 100 messages into primary Trash; never permanently deletes. */
+      trash: (emailIds: string[]) => callApi('email.trash', [emailIds]) as Promise<void>,
+      /** Actual submission, through fail-closed guard/takeover/transform hooks. Needs email:send.
+       * No automatic retries: a lost response may follow a successful submission. */
+      send: (message: import('../plugin-types').PluginSendInput) => callApi('email.send', [message], 0) as Promise<import('../plugin-types').PluginSendResult>,
       /** Move messages into the account's Archive folder. Needs email:write. */
       archive: (emailIds: string[]) => callApi('email.archive', [emailIds]) as Promise<void>,
       /**
@@ -713,7 +728,7 @@ function buildPluginApi(manifest: PluginManifest) {
     // Folders (permission: email:read).
     mailboxes: {
       /** Every folder with its role, parent and message counts. */
-      list: () => callApi('mailboxes.list', []) as Promise<MailboxView[]>,
+      list: (options?: { scope: 'primary' }) => callApi('mailboxes.list', [options]) as Promise<MailboxView[]>,
     },
     // Native sidebar tag definitions. Definition reads/writes use the existing
     // settings permissions; server discovery and message counts use email:read.

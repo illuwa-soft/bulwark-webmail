@@ -2655,7 +2655,7 @@ export class JMAPClient implements IJMAPClient {
       const response = await this.request([
         ["Email/set", { accountId: accountId || this.accountId, update }, "0"],
       ]);
-      assertSetSucceeded(response, 'Failed to update keywords');
+      this.assertEmailUpdatesConfirmed(response, batch, 'update keywords');
     }
   }
 
@@ -2789,6 +2789,14 @@ export class JMAPClient implements IJMAPClient {
    * `notUpdated`/`notDestroyed` failures. `request()` only throws on HTTP
    * errors, so without this the store removes rows the server refused. (#956)
    */
+  private assertEmailUpdatesConfirmed(response: JMAPResponse, ids: string[], action: string): void {
+    this.assertEmailSetSucceeded(response, action);
+    const [name, result] = response.methodResponses?.[0] ?? [];
+    if (name !== 'Email/set' || ids.some(id => !Object.prototype.hasOwnProperty.call(result?.updated ?? {}, id))) {
+      throw new Error(`Failed to ${action}: update was not confirmed for every requested id`);
+    }
+  }
+
   private assertEmailSetSucceeded(response: JMAPResponse, action: string): void {
     const [name, result] = response.methodResponses?.[0] ?? [];
     if (name === "error") {
@@ -2859,7 +2867,7 @@ export class JMAPClient implements IJMAPClient {
       const response = await this.request([
         ["Email/set", { accountId: accountId || this.accountId, update: updates }, "0"],
       ]);
-      this.assertEmailSetSucceeded(response, 'move emails');
+      this.assertEmailUpdatesConfirmed(response, batch, 'move emails');
     }
   }
 
@@ -8656,7 +8664,7 @@ export class JMAPClient implements IJMAPClient {
     return { updated, notUpdated };
   }
 
-  async destroyFileNodes(ids: string[]): Promise<{ destroyed: string[]; notDestroyed: string[] }> {
+  async destroyFileNodes(ids: string[], options?: { recursive?: boolean }): Promise<{ destroyed: string[]; notDestroyed: string[] }> {
     const destroyed: string[] = [];
 
     for (const [accountId, nodes] of this.groupFileNodeIds(ids.map(id => [id, null] as [string, null]))) {
@@ -8666,7 +8674,7 @@ export class JMAPClient implements IJMAPClient {
           [["FileNode/set", {
             accountId,
             destroy: batch.map(n => n.rawId),
-            onDestroyRemoveChildren: true,
+            onDestroyRemoveChildren: options?.recursive ?? true,
           }, "fns0"]],
           this.fileUsing(),
         );

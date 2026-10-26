@@ -1415,10 +1415,11 @@ export class DemoJMAPClient implements IJMAPClient {
     return { updated, notUpdated: {} };
   }
 
-  async destroyFileNodes(ids: string[]): Promise<{ destroyed: string[]; notDestroyed: string[] }> {
-    const idSet = new Set(ids);
+  async destroyFileNodes(ids: string[], options?: { recursive?: boolean }): Promise<{ destroyed: string[]; notDestroyed: string[] }> {
+    const notDestroyed = ids.filter(id => options?.recursive === false && this.data.fileNodes.some(node => node.parentId === id));
+    const idSet = new Set(ids.filter(id => !notDestroyed.includes(id)));
     this.data.fileNodes = this.data.fileNodes.filter(n => !idSet.has(n.id));
-    return { destroyed: ids, notDestroyed: [] };
+    return { destroyed: [...idSet], notDestroyed };
   }
 
   async copyFileNode(id: string, newName: string, parentId: string | null): Promise<FileNode> {

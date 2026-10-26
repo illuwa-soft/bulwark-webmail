@@ -726,6 +726,22 @@ export interface ComposeInput {
 /** What a plugin passes to `api.drafts.create`: the same fields as ComposeInput. */
 export type DraftInput = ComposeInput;
 
+/** A bounded message from the signed-in login's default sender, never raw MIME. */
+export type PluginSendInput = Pick<ComposeInput, 'to' | 'cc' | 'bcc' | 'subject' | 'body'>;
+export interface PluginSendResult {
+  /** submitted means server acceptance, not final delivery. handled means a send plugin took over. */
+  status: 'submitted' | 'scheduled' | 'handled';
+  from: string;
+  emailId?: string;
+  submissionId?: string;
+  sendAt?: string;
+  filingFailed?: boolean;
+  rejectedRecipients?: string[];
+}
+export interface PluginTextFileInput { name: string; text: string; parentId?: string | null }
+export interface PluginDirectoryInput { name: string; parentId?: string | null }
+export interface PluginFilePatch { name?: string; parentId?: string | null }
+
 /**
  * What a plugin passes to `api.notifications.show`. The plugin's name is
  * added to what the user sees, so they know who sent it.

@@ -612,9 +612,9 @@ interface CalendarStore {
   fetchEvents: (client: IJMAPClient, start: string, end: string, options?: FetchEventsOptions) => Promise<void>;
   fetchAllAccountsCalendars: (accounts: CalendarAccountClient[]) => Promise<void>;
   fetchAllAccountsEvents: (accounts: CalendarAccountClient[], start: string, end: string, options?: FetchEventsOptions) => Promise<void>;
-  createEvent: (client: IJMAPClient, event: Partial<CalendarEvent>, sendSchedulingMessages?: boolean) => Promise<CalendarEvent | null>;
-  updateEvent: (client: IJMAPClient, id: string, updates: Partial<CalendarEvent>, sendSchedulingMessages?: boolean) => Promise<boolean>;
-  deleteEvent: (client: IJMAPClient, id: string, sendSchedulingMessages?: boolean) => Promise<boolean>;
+  createEvent: (client: IJMAPClient, event: Partial<CalendarEvent>, sendSchedulingMessages?: boolean, scopeCheck?: () => void) => Promise<CalendarEvent | null>;
+  updateEvent: (client: IJMAPClient, id: string, updates: Partial<CalendarEvent>, sendSchedulingMessages?: boolean, scopeCheck?: () => void) => Promise<boolean>;
+  deleteEvent: (client: IJMAPClient, id: string, sendSchedulingMessages?: boolean, scopeCheck?: () => void) => Promise<boolean>;
   rsvpEvent: (client: IJMAPClient, eventId: string, participantId: string, status: string, replyTo?: Record<string, string> | null, scope?: 'occurrence' | 'series') => Promise<boolean>;
   importEvents: (client: IJMAPClient, events: Partial<CalendarEvent>[], calendarId: string) => Promise<number | null>;
   updateCalendar: (client: IJMAPClient, calendarId: string, updates: Partial<Calendar>) => Promise<void>;
@@ -845,7 +845,7 @@ export const useCalendarStore = create<CalendarStore>()(
         }
       },
 
-      createEvent: async (client, event, sendSchedulingMessages) => {
+      createEvent: async (client, event, sendSchedulingMessages, scopeCheck) => {
         if (!(await calendarHooks.onBeforeEventCreate.intercept(eventToView({ id: '', ...event } as CalendarEvent)))) {
           return null;
         }
@@ -873,7 +873,10 @@ export const useCalendarStore = create<CalendarStore>()(
             }
             cleanEvent.calendarIds = remapped;
           }
-          client = resolveAccountClient(client, localAccountId);
+          scopeCheck?.();
+          const ownerClient = resolveAccountClient(client, localAccountId);
+          if (scopeCheck && ownerClient !== client) throw new Error('Calendar mutation belongs to another login');
+          client = ownerClient;
           if (event.originalCalendarIds) {
             cleanEvent.calendarIds = event.originalCalendarIds;
           }
@@ -943,14 +946,17 @@ export const useCalendarStore = create<CalendarStore>()(
         }
       },
 
-      updateEvent: async (client, id, updates, sendSchedulingMessages): Promise<boolean> => {
+      updateEvent: async (client, id, updates, sendSchedulingMessages, scopeCheck): Promise<boolean> => {
         if (!(await calendarHooks.onBeforeEventUpdate.intercept({ eventId: id, patch: updates }))) return false;
         set({ error: null });
         try {
           // Resolve shared event IDs and client-side expanded occurrence IDs
           const target = resolveMutationTarget(get().events, id, 'occurrence');
           const { storeEvent, realId, targetAccountId } = target;
-          client = resolveAccountClient(client, target.localAccountId);
+          scopeCheck?.();
+          const ownerClient = resolveAccountClient(client, target.localAccountId);
+          if (scopeCheck && ownerClient !== client) throw new Error('Calendar mutation belongs to another login');
+          client = ownerClient;
           debug.log('calendar', 'Calendar updateEvent', {
             storeId: id,
             realId,
@@ -1105,7 +1111,7 @@ export const useCalendarStore = create<CalendarStore>()(
         return imported;
       },
 
-      deleteEvent: async (client, id, sendSchedulingMessages): Promise<boolean> => {
+      deleteEvent: async (client, id, sendSchedulingMessages, scopeCheck): Promise<boolean> => {
         const title = get().events.find((e) => e.id === id)?.title || '';
         if (!(await calendarHooks.onBeforeEventDelete.intercept({ eventId: id, title }))) return false;
         set({ error: null });
@@ -1113,7 +1119,10 @@ export const useCalendarStore = create<CalendarStore>()(
           // Resolve shared event IDs and client-side expanded occurrence IDs
           const target = resolveMutationTarget(get().events, id, 'occurrence');
           const { storeEvent, realId, targetAccountId } = target;
-          client = resolveAccountClient(client, target.localAccountId);
+          scopeCheck?.();
+          const ownerClient = resolveAccountClient(client, target.localAccountId);
+          if (scopeCheck && ownerClient !== client) throw new Error('Calendar mutation belongs to another login');
+          client = ownerClient;
           // Cancellation emails (iTIP CANCEL) are sent by the server via the
           // `sendSchedulingMessages` argument on the destroy below - a manual
           // iMIP send here produced duplicate emails.
@@ -2015,4 +2024,3 @@ registerCalendarSubscriptionSyncBridge(
     }
   })
 );
-

@@ -211,7 +211,7 @@ describe('JMAPClient request limits', () => {
 
     it('splits batchMoveEmails at a ceiling the server lowered', async () => {
       const client = await connectedClient({ maxObjectsInSet: 100 });
-      const sent = recordRequests(() => ({ methodResponses: [['Email/set', { updated: {} }, '0']] }));
+      const sent = recordRequests((calls) => ({ methodResponses: [['Email/set', { updated: Object.fromEntries(Object.keys(calls[0][1].update as object).map(id => [id, null])) }, '0']] }));
 
       await client.batchMoveEmails(ids, 'mailbox-2');
 
