@@ -13,6 +13,7 @@ import type {
 import type { Calendar, CalendarEvent, CalendarParticipant, CalendarRecurrenceRule, CalendarTask } from '../jmap/types';
 import type { IJMAPClient } from '../jmap/client-interface';
 import { useCalendarStore } from '@/stores/calendar-store';
+import { useAuthStore } from '@/stores/auth-store';
 import { useTaskStore } from '@/stores/task-store';
 import { useIdentityStore } from '@/stores/identity-store';
 import { eventToView, taskToView } from '../plugin-projection';
@@ -203,20 +204,45 @@ async function pickCalendar(
   forTasks: boolean,
 ): Promise<string> {
   const calendars = await ensureCalendars(client);
+  if (useAuthStore.getState().client !== client) throw new Error(`${method}: session changed`);
   if (requested !== undefined) {
     const id = readId(requested, method, 'calendarId');
     if (!calendars.some((c) => c.id === id)) throw new Error(`${method}: no calendar with id "${id}"`);
+    assertCalendarOwner(client, [id], method);
     return id;
   }
   const choice = forTasks
     ? calendars.find((c) => c.isTasksOnly) ?? calendars.find((c) => c.isDefault) ?? calendars[0]
     : calendars.find((c) => c.isDefault && !c.isTasksOnly) ?? calendars.find((c) => !c.isTasksOnly);
   if (!choice) throw new Error(`${method}: there is no calendar to put it in`);
+  assertCalendarOwner(client, [choice.id], method);
   return choice.id;
 }
 
-export async function doCalendarListCalendars(): Promise<CalendarView[]> {
+function assertCalendarOwner(client: IJMAPClient, ids: string[], method: string) {
+  if (useAuthStore.getState().client !== client) throw new Error(`${method}: session changed`);
+  for (const calendar of useCalendarStore.getState().calendars) {
+    if (ids.includes(calendar.id) && calendar.localAccountId && useAuthStore.getState().getClientForAccount(calendar.localAccountId) !== client) throw new Error(`${method}: calendar belongs to another login`);
+  }
+}
+
+function calendarScopeCheck(client: IJMAPClient, method: string) {
+  const identity = () => JSON.stringify([client.getServerUrl(), client.getUsername(), client.getCalendarsAccountId()]);
+  const owner = identity();
+  return () => {
+    if (useAuthStore.getState().client !== client || identity() !== owner) throw new Error(`${method}: session changed`);
+  };
+}
+
+export async function doCalendarListCalendars(options?: unknown): Promise<CalendarView[]> {
   const client = sessionClient('calendar.listCalendars');
+  const opts = readObject(options, 'calendar.listCalendars', 'options', ['scope'], true);
+  if (opts.scope !== undefined && opts.scope !== 'primary') throw new Error('calendar.listCalendars: unknown scope');
+  if (opts.scope === 'primary') {
+    const own = await client.getCalendars();
+    if (useAuthStore.getState().client !== client) throw new Error('calendar.listCalendars: session changed');
+    return own.map(calendarToView);
+  }
   return (await ensureCalendars(client)).map(calendarToView);
 }
 
@@ -288,9 +314,18 @@ async function loadEvent(client: IJMAPClient, id: string): Promise<CalendarEvent
   };
 }
 
-export async function doCalendarGetEvent(id: unknown): Promise<CalendarEventView | null> {
+export async function doCalendarGetEvent(id: unknown, options?: unknown): Promise<CalendarEventView | null> {
   const method = 'calendar.getEvent';
   const eventId = readId(id, method);
+  const opts = readObject(options, method, 'options', ['scope'], true);
+  if (opts.scope !== undefined && opts.scope !== 'primary') throw new Error(`${method}: unknown scope`);
+  if (opts.scope === 'primary') {
+    if (eventId.includes(':')) throw new Error(`${method}: primary-account id required`);
+    const client = sessionClient(method);
+    const own = await client.getCalendarEvent(eventId, client.getCalendarsAccountId());
+    if (useAuthStore.getState().client !== client) throw new Error(`${method}: session changed`);
+    return own ? eventToView(own) : null;
+  }
   const event = await loadEvent(sessionClient(method), eventId);
   return event ? eventToView(event) : null;
 }
@@ -302,7 +337,9 @@ export async function doCalendarGetEvent(id: unknown): Promise<CalendarEventView
  */
 async function eventForMutation(client: IJMAPClient, method: string, id: string): Promise<CalendarEvent> {
   const event = await loadEvent(client, id);
+  if (useAuthStore.getState().client !== client) throw new Error(`${method}: session changed`);
   if (!event) throw new Error(`${method}: no event with id "${id}"`);
+  assertCalendarOwner(client, Object.keys(event.calendarIds || {}), method);
   if (!useCalendarStore.getState().events.some((e) => e.id === id)) {
     useCalendarStore.setState((state) => ({ events: [...state.events, event] }));
   }
@@ -396,6 +433,7 @@ export async function doCalendarCreateEvent(input: unknown, pluginId = 'unknown'
   const title = readString(data.title, method, 'title', MAX_TITLE, { min: 1, trim: true });
   const timing = buildTiming(method, data);
   const client = sessionClient(method);
+  const scopeCheck = calendarScopeCheck(client, method);
   const calendarId = await pickCalendar(client, method, data.calendarId, false);
 
   let uid = generateUUID();
@@ -426,7 +464,9 @@ export async function doCalendarCreateEvent(input: unknown, pluginId = 'unknown'
   }
   if (data.repeat !== undefined) event.recurrenceRules = recurrenceOf(data.repeat, method);
 
-  const created = await useCalendarStore.getState().createEvent(client, event, false);
+  assertCalendarOwner(client, [calendarId], method);
+  scopeCheck();
+  const created = await useCalendarStore.getState().createEvent(client, event, false, scopeCheck);
   return created ? eventToView(created) : null;
 }
 
@@ -453,6 +493,7 @@ export async function doCalendarUpdateEvent(id: unknown, patch: unknown): Promis
   if (data.repeat !== undefined) updates.recurrenceRules = recurrenceOf(data.repeat, method);
 
   const client = sessionClient(method);
+  const scopeCheck = calendarScopeCheck(client, method);
   if (data.calendarId !== undefined) {
     updates.calendarIds = { [await pickCalendar(client, method, data.calendarId, false)]: true };
   }
@@ -472,7 +513,9 @@ export async function doCalendarUpdateEvent(id: unknown, patch: unknown): Promis
     }));
   }
 
-  await useCalendarStore.getState().updateEvent(client, eventId, updates, false);
+  scopeCheck();
+  const updated = await useCalendarStore.getState().updateEvent(client, eventId, updates, false, scopeCheck);
+  if (!updated) throw new Error(`${method}: update was not confirmed or a plugin stopped it`);
 }
 
 /** Delete an event (one occurrence when the id is an occurrence's). Never sends cancellations. */
@@ -480,8 +523,11 @@ export async function doCalendarDeleteEvent(id: unknown): Promise<void> {
   const method = 'calendar.deleteEvent';
   const eventId = readId(id, method);
   const client = sessionClient(method);
+  const scopeCheck = calendarScopeCheck(client, method);
   await eventForMutation(client, method, eventId);
-  await useCalendarStore.getState().deleteEvent(client, eventId, false);
+  scopeCheck();
+  const deleted = await useCalendarStore.getState().deleteEvent(client, eventId, false, scopeCheck);
+  if (!deleted) throw new Error(`${method}: deletion was not confirmed or a plugin stopped it`);
 }
 
 // ─── Tasks ────────────────────────────────────────────────────

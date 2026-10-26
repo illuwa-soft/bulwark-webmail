@@ -53,6 +53,9 @@ let client: Record<string, ReturnType<typeof vi.fn>>;
 
 beforeEach(() => {
   client = {
+    getServerUrl: vi.fn(() => 'https://mail.example.test'),
+    getUsername: vi.fn(() => 'fixture'),
+    getCalendarsAccountId: vi.fn(() => 'calendar-account'),
     queryAllCalendarEvents: vi.fn(async () => [
       event({ id: 'late', start: '2026-05-06T10:00:00', utcStart: '2026-05-06T08:00:00Z', calendarIds: { 'cal-home': true } }),
       event({}),
@@ -82,6 +85,8 @@ afterEach(() => {
   useTaskStore.setState({ tasks: [] });
   useIdentityStore.setState({ identities: [] });
   calendarHooks.onBeforeEventCreate.removePlugin('veto');
+  calendarHooks.onBeforeEventUpdate.removePlugin('switch');
+  calendarHooks.onBeforeEventUpdate.removePlugin('veto');
   taskHooks.onBeforeTaskDelete.removePlugin('veto');
 });
 
@@ -195,6 +200,23 @@ describe('api.calendar', () => {
     expect(client.deleteCalendarEvent).toHaveBeenCalledWith('e1', false, undefined);
     await expect(call(WRITE, 'calendar.deleteEvent', 'missing')).rejects.toThrow(/no event with id "missing"/);
     await expect(call(WRITE, 'calendar.updateEvent', 'e1', {})).rejects.toThrow(/patch is empty/);
+  });
+
+  it('checks the original login again after a send-style plugin guard awaits', async () => {
+    const other = { updateCalendarEvent: vi.fn(async () => undefined) };
+    calendarHooks.onBeforeEventUpdate.register('switch', async () => {
+      useAuthStore.setState({ client: other as unknown as IJMAPClient });
+      return true;
+    });
+    await expect(call(WRITE, 'calendar.updateEvent', 'e1', { title: 'New title' })).rejects.toThrow(/session changed|not confirmed/);
+    expect(client.updateCalendarEvent).not.toHaveBeenCalled();
+    expect(other.updateCalendarEvent).not.toHaveBeenCalled();
+  });
+
+  it('does not report a vetoed update as a successful void result', async () => {
+    calendarHooks.onBeforeEventUpdate.register('veto', () => false);
+    await expect(call(WRITE, 'calendar.updateEvent', 'e1', { title: 'New title' })).rejects.toThrow(/not confirmed|stopped/);
+    expect(client.updateCalendarEvent).not.toHaveBeenCalled();
   });
 });
 

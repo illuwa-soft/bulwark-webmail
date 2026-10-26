@@ -49,6 +49,13 @@ function makeClient(nodes: Record<string, Array<Record<string, unknown>>>) {
 const sets = (calls: Call[]) => calls.filter(([m]) => m === 'FileNode/set').map(([, a]) => a);
 
 describe('FileNode writes', () => {
+  it('can ask the server to refuse non-empty directories without changing the native recursive default', async () => {
+    const { client, calls } = makeClient({});
+    await client.destroyFileNodes(['empty-directory'], { recursive: false });
+    await client.destroyFileNodes(['native-ui-directory']);
+    expect(sets(calls)[0]).toMatchObject({ onDestroyRemoveChildren: false });
+    expect(sets(calls)[1]).toMatchObject({ onDestroyRemoveChildren: true });
+  });
   it('writes inside a shared drive go to that account with bare ids', async () => {
     const { client, calls } = makeClient({});
     const dir = await client.createFileDirectory('New', 'grp:f1');

@@ -8,12 +8,15 @@
 // login. The bytes of attachments and sources are read from the signed-in
 // account only.
 
-import type { EmailReadView, EmailSummary, MailboxView } from '../plugin-types';
+import type { EmailReadView, EmailSummary, MailboxView, InstalledPlugin } from '../plugin-types';
 import type { Email, Mailbox } from '../jmap/types';
 import type { IJMAPClient } from '../jmap/client-interface';
 import { resolveEmailBlobContext, useEmailStore } from '@/stores/email-store';
 import { emailSummary, emailToReadView } from '../plugin-projection';
 import { MAX_PLUGIN_FETCH_BYTES, readBoolean, readId, readInteger, readObject, readString, sessionClient, withinRate } from './host-api-input';
+import { writeScope } from './host-api-write-scope';
+import { allowEmailMove, emitEmailMove } from '../plugin-mail-hooks';
+import { emailKeyFor } from '../thread-utils';
 
 /** Most messages one api.email.list call returns. */
 export const MAX_PLUGIN_EMAIL_PAGE = 100;
@@ -62,8 +65,22 @@ async function knownMailboxes(client: IJMAPClient): Promise<Mailbox[]> {
   return mailboxes.length > 0 ? mailboxes : client.getMailboxes();
 }
 
-export async function doMailboxesList(): Promise<MailboxView[]> {
-  return (await knownMailboxes(sessionClient('mailboxes.list'))).map(mailboxToView);
+export async function doMailboxesList(options?: unknown): Promise<MailboxView[]> {
+  const opts = readObject(options, 'mailboxes.list', 'options', ['scope'], true);
+  const client = sessionClient('mailboxes.list');
+  if (opts.scope !== undefined && opts.scope !== 'primary') throw new Error('mailboxes.list: unknown scope');
+  if (opts.scope === 'primary') return (await client.getMailboxes(client.getAccountId())).map(mailboxToView);
+  return (await knownMailboxes(client)).map(mailboxToView);
+}
+
+/** A mutation preview must not use a message cached from another login's view. */
+export async function doEmailGetPrimary(plugin: InstalledPlugin, idArg: unknown) {
+  const id = readId(idArg, 'email.getPrimary');
+  if (id.includes(':')) throw new Error('email.getPrimary: primary-account id required');
+  const scope = writeScope(plugin, 'email:read', 'email.getPrimary');
+  const email = await scope.client.getEmail(id, scope.client.getAccountId());
+  scope.check();
+  return email ? emailToReadView(email) : null;
 }
 
 /**
@@ -204,29 +221,86 @@ function readIdList(value: unknown, method: string): string[] {
   return [...new Set(value.map((id, i) => readId(id, method, `emailIds[${i}]`)))];
 }
 
-/**
- * Move messages of the signed-in account into one of its folders, through
- * the store, so the list updates and onBeforeEmailMove / onEmailMove (and the
- * archive hooks for the archive folder) run like for a move the user made.
- */
-export async function doEmailMove(pluginId: string, emailIdsArg: unknown, mailboxIdArg: unknown): Promise<void> {
+/** Reflect a confirmed primary-account move without dropping same-ID rows of another account. */
+function reflectPrimaryMove(client: IJMAPClient, emailIds: string[]) {
+  const ids = new Set(emailIds);
+  const primary = client.getAccountId();
+  const moved = (email: Email) => {
+    if (!ids.has(email.id)) return false;
+    const owner = resolveEmailBlobContext(email, client);
+    return owner.client === client && (owner.accountId ?? primary) === primary;
+  };
+  useEmailStore.setState((state) => {
+    const selectedEmailKeys = new Set(state.selectedEmailKeys);
+    for (const email of state.emails) if (moved(email)) selectedEmailKeys.delete(emailKeyFor(email));
+    let selectedEmail = state.selectedEmail;
+    if (selectedEmail && moved(selectedEmail)) {
+      selectedEmailKeys.delete(emailKeyFor(selectedEmail));
+      selectedEmail = null;
+    }
+    return {
+      emails: state.emails.filter(email => !moved(email)),
+      selectedEmail,
+      selectedEmailKeys,
+    };
+  });
+}
+
+/** Move primary IDs even when unloaded; native hooks and the scoped list still follow confirmed writes. */
+export async function doEmailMove(plugin: InstalledPlugin, emailIdsArg: unknown, mailboxIdArg: unknown): Promise<void> {
   const method = 'email.move';
   const emailIds = readIdList(emailIdsArg, method);
   const mailboxId = readId(mailboxIdArg, method, 'mailboxId');
-  const store = useEmailStore.getState();
-  if (!store.mailboxes.some((m) => m.id === mailboxId && !m.isShared)) {
+  const scope = writeScope(plugin, 'email:write', method);
+  const mailboxes = await scope.client.getMailboxes(scope.client.getAccountId());
+  scope.check();
+  if (!mailboxes.some((m) => m.id === mailboxId && !m.isShared)) {
     throw new Error(`${method}: no folder with id "${mailboxId}" in this account`);
   }
-  if (!withinRate('email.move', pluginId, MAX_PLUGIN_MOVES_PER_MINUTE)) throw new Error(`${method}: too many moves, try again in a minute`);
-  await store.moveEmailsToMailbox(sessionClient(method), emailIds, mailboxId);
+  if (!withinRate('email.move', plugin.id, MAX_PLUGIN_MOVES_PER_MINUTE)) throw new Error(`${method}: too many moves, try again in a minute`);
+  const move = { emailIds, fromMailboxId: null, toMailboxId: mailboxId };
+  if (!(await allowEmailMove(move, mailboxes))) throw new Error(`${method}: move stopped by a plugin`);
+  scope.check();
+  await scope.client.batchMoveEmails(emailIds, mailboxId, scope.client.getAccountId());
+  scope.check();
+  reflectPrimaryMove(scope.client, emailIds);
+  emitEmailMove(move, mailboxes);
+  void useEmailStore.getState().fetchMailboxes(scope.client).catch(() => {});
 }
 
 /** Move messages into the account's Archive folder. */
-export async function doEmailArchive(pluginId: string, emailIdsArg: unknown): Promise<void> {
+export async function doEmailArchive(plugin: InstalledPlugin, emailIdsArg: unknown): Promise<void> {
   const method = 'email.archive';
   const emailIds = readIdList(emailIdsArg, method);
-  const archive = useEmailStore.getState().mailboxes.find((m) => m.role === 'archive' && !m.isShared);
+  const scope = writeScope(plugin, 'email:write', method);
+  const archive = (await scope.client.getMailboxes(scope.client.getAccountId())).find((m) => m.role === 'archive' && !m.isShared);
+  scope.check();
   if (!archive) throw new Error(`${method}: this account has no Archive folder`);
-  if (!withinRate('email.move', pluginId, MAX_PLUGIN_MOVES_PER_MINUTE)) throw new Error(`${method}: too many moves, try again in a minute`);
-  await useEmailStore.getState().moveEmailsToMailbox(sessionClient(method), emailIds, archive.id);
+  await doEmailMove(plugin, emailIds, archive.id);
+}
+
+/** Moves to Trash, never Email/destroy. */
+export async function doEmailTrash(plugin: InstalledPlugin, emailIdsArg: unknown): Promise<void> {
+  const method = 'email.trash';
+  const ids = readIdList(emailIdsArg, method);
+  const scope = writeScope(plugin, 'email:write', method);
+  const trash = (await scope.client.getMailboxes(scope.client.getAccountId())).find((m) => m.role === 'trash' && !m.isShared);
+  scope.check();
+  if (!trash) throw new Error(`${method}: this account has no Trash folder`);
+  await doEmailMove(plugin, ids, trash.id);
+}
+
+/** Fixed standard flags, in the primary account; not a generic keyword/Email-set primitive. */
+export async function doEmailUpdate(plugin: InstalledPlugin, idsArg: unknown, input: unknown) {
+  const method = 'email.update';
+  const ids = readIdList(idsArg, method);
+  const data = readObject(input, method, 'changes', ['isRead', 'isFlagged']);
+  const patch: Record<string, boolean | null> = {};
+  if (data.isRead !== undefined) patch['keywords/$seen'] = readBoolean(data.isRead, method, 'isRead') || null;
+  if (data.isFlagged !== undefined) patch['keywords/$flagged'] = readBoolean(data.isFlagged, method, 'isFlagged') || null;
+  if (!Object.keys(patch).length) throw new Error(`${method}: a change is required`);
+  const scope = writeScope(plugin, 'email:write', method);
+  if (!withinRate('email.update', plugin.id, 20)) throw new Error(`${method}: too many changes`);
+  await scope.client.batchUpdateKeywords(ids, patch, scope.client.getAccountId());
+  scope.check();
 }
