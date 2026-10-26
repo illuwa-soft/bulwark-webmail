@@ -2713,9 +2713,33 @@ export function EmailComposer({
   };
   const pluginAttachRef = useRef(handlePluginAttachmentAdd);
   pluginAttachRef.current = handlePluginAttachmentAdd;
+  const pluginReviewRef = useRef({
+    metadata: () => ({ subject: '', to: [] as string[], attachments: [] as { id: string; name: string; type: string; size: number }[], accountKey: '' }),
+    readAttachment: async (_id: string): Promise<{ name: string; type: string; size: number; data: ArrayBuffer }> => { throw new Error('attachment_unavailable'); },
+  });
+  pluginReviewRef.current = {
+    metadata: () => ({
+      subject: draftSnapshotRef.current().subject,
+      to: draftSnapshotRef.current().to,
+      accountKey: composerAccountId ?? '',
+      identityId: draftSnapshotRef.current().identityId,
+      cc: draftSnapshotRef.current().cc,
+      bcc: draftSnapshotRef.current().bcc,
+      pending: attachmentsRef.current.some(att => att.uploading || att.error || !att.blobId),
+      attachments: attachmentsRef.current.filter(att => att.blobId && !att.uploading && !att.error).map(att => ({ id: att.blobId!, name: att.name, type: att.type || 'application/octet-stream', size: att.size })),
+    }),
+    readAttachment: async (id) => {
+      const file = attachmentsRef.current.find(att => att.blobId === id && !att.uploading && !att.error);
+      if (!file || !composerClient) throw new Error('attachment_unavailable');
+      const blob = await composerClient.fetchBlob(id, file.name, file.type, file.sourceAccountId);
+      return { name: file.name, type: file.type || blob.type, size: file.size, data: await blob.arrayBuffer() };
+    },
+  };
   useEffect(() => {
     const plainRange = (value: string) => plainOwnRange(value, pluginEditOptsRef.current);
     const { id, unregister } = registerComposer({
+      readMetadata: () => pluginReviewRef.current.metadata(),
+      readAttachment: (attachmentId) => pluginReviewRef.current.readAttachment(attachmentId),
       readBody: () => {
         if (plainTextModeRef.current) {
           const value = bodyRef.current?.value ?? '';

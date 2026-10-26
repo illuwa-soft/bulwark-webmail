@@ -20,6 +20,9 @@ import { Avatar } from "@/components/ui/avatar";
 import { SubMenuPanel } from "@/components/ui/context-menu";
 import { ReaderSelectionMenu, useReaderSelectionMenu, watchBodySelection, watchElementSelection } from "./reader-selection-menu";
 import { onPanelRequest } from "@/lib/plugin-sandbox/panel-requests";
+import { registerComposer } from "@/lib/plugin-sandbox/composer-registry";
+import { replaceTextareaRange, textToEditorHtml } from "@/lib/plugin-sandbox/composer-edit";
+import { ComposerPluginToolbarButtons } from "@/components/email/composer-toolbar-menu";
 import { formatFileSize, cn, MailboxNode, formatDate, formatDateTime, formatRelativeAgo, generateUUID, cleanPreview } from "@/lib/utils";
 import { getEffectiveTimeZone, getWallClock } from "@/lib/timezone";
 import { itemsToHide } from "@/lib/toolbar-overflow";
@@ -1337,6 +1340,26 @@ export function EmailViewer({
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
   }, [inAppPreview]);
   const [quickReplyText, setQuickReplyText] = useState("");
+  const quickReplyRef = useRef<HTMLTextAreaElement>(null);
+  const [quickComposerId, setQuickComposerId] = useState<string | null>(null);
+  const quickMetadataRef = useRef(() => ({ subject: '', to: [] as string[], attachments: [], accountKey: '' }));
+  quickMetadataRef.current = () => {
+    const to = email?.replyTo?.map(item => item.email).filter((item): item is string => Boolean(item)) ?? [];
+    if (!to.length) to.push(...(email?.from?.map(item => item.email).filter((item): item is string => Boolean(item)) ?? []));
+    return { subject: email?.subject ?? '', to, attachments: [], accountKey: activeAccount?.id ?? '' };
+  };
+  useEffect(() => {
+    const registration = registerComposer({
+      readBody: () => { const text = quickReplyRef.current?.value ?? ''; return { text, html: textToEditorHtml(text) }; },
+      readMetadata: () => quickMetadataRef.current(),
+      readSelection: () => { const input = quickReplyRef.current; const text = input?.value.slice(input.selectionStart, input.selectionEnd) ?? ''; return { text, html: textToEditorHtml(text), empty: !text }; },
+      replaceBody: (_html, text) => { const input = quickReplyRef.current; if (!input) return false; const changed = replaceTextareaRange(input, 0, input.value.length, text); if (changed) setQuickReplyText(input.value); return changed; },
+      replaceSelection: (_html, text) => { const input = quickReplyRef.current; if (!input) return false; const changed = replaceTextareaRange(input, input.selectionStart, input.selectionEnd, text); if (changed) setQuickReplyText(input.value); return changed; },
+      attach: async () => false,
+    });
+    setQuickComposerId(registration.id);
+    return registration.unregister;
+  }, [email?.id, activeAccount?.id]);
   const [isQuickReplyFocused, setIsQuickReplyFocused] = useState(false);
   const [isSendingQuickReply, setIsSendingQuickReply] = useState(false);
   const handleSendQuickReply = async () => {
@@ -6352,6 +6375,7 @@ export function EmailViewer({
               </div>
               <div className="flex-1 min-w-0 space-y-3">
                   <textarea
+                    ref={quickReplyRef}
                     value={quickReplyText}
                     onChange={(e) => setQuickReplyText(e.target.value)}
                     onFocus={() => setIsQuickReplyFocused(true)}
@@ -6403,6 +6427,7 @@ export function EmailViewer({
                           <MoreVertical className="w-4 h-4 me-1" />
                           {t('more_options')}
                         </Button>
+                        {quickComposerId && <ComposerPluginToolbarButtons alwaysVisible surface="composer-toolbar-actions" context={() => ({ composerId: quickComposerId })} />}
                         <Button
                           size="sm"
                           onClick={handleSendQuickReply}

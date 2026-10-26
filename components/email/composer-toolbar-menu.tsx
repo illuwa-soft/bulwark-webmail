@@ -197,7 +197,7 @@ interface PluginItemsProps {
  * are hidden and the same actions are listed in the Options menu instead
  * (ComposerPluginMenuItems with `onlyWhenNarrow`).
  */
-export function ComposerPluginToolbarButtons({ surface, context }: { surface: "composer-toolbar-actions"; context: () => Record<string, unknown> }) {
+export function ComposerPluginToolbarButtons({ surface, context, alwaysVisible = false }: { surface: "composer-toolbar-actions"; context: () => Record<string, unknown>; alwaysVisible?: boolean }) {
   const actions = usePluginActions(surface);
   if (actions.length === 0) return null;
   return (
@@ -210,7 +210,7 @@ export function ComposerPluginToolbarButtons({ surface, context }: { surface: "c
             key={`${action.pluginId}:${action.id}`}
             type="button"
             variant="ghost"
-            className={cn("hidden @[44rem]/composer-bar:inline-flex h-9 gap-1.5 px-2 sm:px-2.5", action.danger && "text-destructive")}
+            className={cn("h-9 gap-1.5 px-2 sm:px-2.5", !alwaysVisible && "hidden @[44rem]/composer-bar:inline-flex", action.danger && "text-destructive")}
             title={tip}
             aria-label={action.label}
             aria-keyshortcuts={action.shortcut}
