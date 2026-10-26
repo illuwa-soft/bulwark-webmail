@@ -40,6 +40,41 @@ beforeEach(() => resetPluginRateLimits());
 afterEach(() => resetComposers());
 
 describe('api.composer', () => {
+  it('binds review tokens to recipients, attachments and body, rejecting stale edits', async () => {
+    const handle = fakeHandle();
+    let recipient = 'a@example.com';
+    handle.readMetadata = () => ({ subject: 'Review', to: [recipient], attachments: [] });
+    const { id } = registerComposer(handle);
+    const reviewer = plugin(['email:send', 'compose:write']);
+    const snapshot = await call(reviewer, 'composer.getSnapshot', id) as { revision: string };
+    expect(await call(reviewer, 'composer.getSnapshot', id)).toMatchObject(snapshot);
+    recipient = 'b@example.com';
+    await expect(call(reviewer, 'composer.replaceBody', id, { text: 'Reviewed' }, { expectedRevision: snapshot.revision })).rejects.toThrow('composer_changed');
+    expect(handle.calls).toEqual([]);
+    const current = await call(reviewer, 'composer.getSnapshot', id) as { revision: string };
+    expect(await call(reviewer, 'composer.replaceBody', id, { text: 'Reviewed' }, { expectedRevision: current.revision })).toBe(true);
+  });
+
+  it('checks snapshot and attachment permissions and composer membership', async () => {
+    const handle = fakeHandle();
+    handle.readMetadata = () => ({ subject: '', to: [], attachments: [{ id: 'blob-a', name: 'a.txt', type: 'text/plain', size: 3 }] });
+    handle.readAttachment = async () => ({ name: 'a.txt', type: 'text/plain', size: 3, data: new ArrayBuffer(3) });
+    const { id } = registerComposer(handle);
+    await expect(call(READ, 'composer.getSnapshot', id)).rejects.toThrow('lacks permission');
+    await expect(call(READ, 'composer.readAttachment', id, 'blob-a')).rejects.toThrow('lacks permission');
+    const reader = plugin(['email:blob-read']);
+    await expect(call(reader, 'composer.readAttachment', id, 'other-account-blob')).rejects.toThrow('attachment_not_in_composer');
+    expect(await call(reader, 'composer.readAttachment', id, 'blob-a')).toMatchObject({ name: 'a.txt', size: 3 });
+  });
+
+  it('rejects an attachment result after the account changes during its download', async () => {
+    const handle = fakeHandle();
+    let accountKey = 'a';
+    handle.readMetadata = () => ({ subject: '', to: [], accountKey, attachments: [{ id: 'blob', name: 'a.txt', type: 'text/plain', size: 3 }] });
+    handle.readAttachment = async () => { accountKey = 'b'; return { name: 'a.txt', type: 'text/plain', size: 3, data: new ArrayBuffer(3) }; };
+    const { id } = registerComposer(handle);
+    await expect(call(plugin(['email:blob-read']), 'composer.readAttachment', id, 'blob')).rejects.toThrow('composer_changed');
+  });
   it('reads the open message with compose:read only', async () => {
     const { id } = registerComposer(fakeHandle());
     expect(await call(READ, 'composer.getBody', id)).toEqual({ html: '<p>Hello</p>', text: 'Hello' });
