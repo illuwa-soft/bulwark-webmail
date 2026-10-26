@@ -1,7 +1,9 @@
-import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, act, waitFor, cleanup } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Email, Mailbox } from '@/lib/jmap/types';
 import { emailHooks, clearAllHooks } from '@/lib/plugin-hooks';
+import { captureComposer, composerHandle } from '@/lib/plugin-sandbox/composer-registry';
+import { resetActions, setActionDispatcher, setPluginActions } from '@/lib/plugin-sandbox/actions';
 
 // mail-read hooks fired by the reading pane: onEmailContentRender once the
 // body is on screen and onThreadExpand for the conversation cards. (The link
@@ -45,6 +47,30 @@ const viewer = (email: Email, extra: Record<string, unknown> = {}) => (
 );
 
 beforeEach(() => clearAllHooks());
+afterEach(() => { cleanup(); act(() => { resetActions(); setActionDispatcher(null); }); });
+
+describe('quick reply composer actions', () => {
+  it('exposes the selected draft, applies a replacement and unregisters on close', async () => {
+    const clicks: Record<string, unknown>[] = [];
+    const send = vi.fn();
+    setActionDispatcher(async (_plugin, _surface, _action, context) => { clicks.push(context); });
+    setPluginActions('assistant', 'Assistant', 'composer-toolbar-actions', [{ id: 'polish', label: 'AI로 다듬기' }]);
+    const { unmount } = render(viewer({ ...textEmail(), replyTo: [] }, { onQuickReply: send }));
+    const input = await screen.findByRole('textbox');
+    fireEvent.change(input, { target: { value: '거친 초안' } });
+    const button = await screen.findByRole('button', { name: 'AI로 다듬기' });
+    expect(button).not.toHaveClass('hidden');
+    fireEvent.click(button);
+    await waitFor(() => expect(clicks).toHaveLength(1));
+    const id = clicks[0].composerId as string;
+    expect(captureComposer(id)).toMatchObject({ text: '거친 초안', subject: 'Hello', to: ['alice@example.com'], attachments: [] });
+    await act(async () => { expect(composerHandle(id)!.replaceBody('', '정중한 수정안')).toBe(true); });
+    expect(input).toHaveValue('정중한 수정안');
+    expect(send).not.toHaveBeenCalled();
+    unmount();
+    expect(composerHandle(id)).toBeNull();
+  });
+});
 
 describe('onEmailContentRender', () => {
   it('fires once the body is on screen, once per message', async () => {

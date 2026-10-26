@@ -16,7 +16,7 @@
 import type { InstalledPlugin } from '../plugin-types';
 import { sanitizePluginBodyHtml } from '../email-sanitization';
 import { htmlToPlainText } from '../html-to-text';
-import { composerHandle, type ComposerHandle } from './composer-registry';
+import { captureComposer, composerHandle, type ComposerHandle } from './composer-registry';
 import { textToEditorHtml } from './composer-edit';
 import { readBoolean, readId, readObject, readString, withinRate } from './host-api-input';
 
@@ -64,12 +64,40 @@ export function doComposerReplaceSelection(plugin: InstalledPlugin, id: unknown,
   return handle.replaceSelection(html, text, { below });
 }
 
-export function doComposerReplaceBody(plugin: InstalledPlugin, id: unknown, content: unknown): boolean {
+export function doComposerReplaceBody(plugin: InstalledPlugin, id: unknown, content: unknown, options?: unknown): boolean {
   const method = 'composer.replaceBody';
   const handle = handleFor(method, id);
   const { html, text } = readContent(method, content);
+  const opts = readObject(options, method, 'options', ['expectedRevision'], true);
+  if (opts.expectedRevision !== undefined) {
+    const expected = readString(opts.expectedRevision, method, 'expectedRevision', 256);
+    if (captureComposer(readId(id, method, 'composerId')).revision !== expected) throw new Error('composer_changed: review the current draft again');
+  }
   rateLimited(method, plugin);
   return handle.replaceBody(html, text);
+}
+
+/** Read a coherent snapshot for explicit review. 명시적 검수용 스냅샷을 읽습니다. */
+export function doComposerGetSnapshot(_plugin: InstalledPlugin, id: unknown) {
+  const composerId = readId(id, 'composer.getSnapshot', 'composerId');
+  handleFor('composer.getSnapshot', composerId);
+  return captureComposer(composerId);
+}
+
+/** Restrict blob reads to files still attached to the selected composer.
+ * 선택한 작성창에 현재 첨부된 파일로 읽기 범위를 제한합니다. */
+export async function doComposerReadAttachment(_plugin: InstalledPlugin, id: unknown, attachmentId: unknown) {
+  const method = 'composer.readAttachment';
+  const composerId = readId(id, method, 'composerId');
+  const fileId = readString(attachmentId, method, 'attachmentId', 200, { min: 1 });
+  const handle = handleFor(method, composerId);
+  const snapshot = captureComposer(composerId);
+  const file = snapshot.attachments.find(item => item.id === fileId);
+  if (!file || !handle.readAttachment) throw new Error('attachment_not_in_composer');
+  if (file.size > 25 * 1024 * 1024) throw new Error('attachment exceeds 25 MB');
+  const result = await handle.readAttachment(fileId);
+  if (captureComposer(composerId).revision !== snapshot.revision) throw new Error('composer_changed');
+  return result;
 }
 
 export async function doComposerAttach(plugin: InstalledPlugin, id: unknown, file: unknown): Promise<boolean> {

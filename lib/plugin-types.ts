@@ -1155,6 +1155,26 @@ export interface PluginAttachmentUpload {
   size: number;
 }
 
+/** Immutable review input for one open composer; signatures and quotes are excluded.
+ * 서명·인용문을 제외한 열린 작성창 하나의 불변 검수 입력입니다. */
+export type ComposerSnapshot = {
+  revision: string;
+  subject: string;
+  text: string;
+  to: string[];
+  attachments: { id: string; name: string; type: string; size: number }[];
+  pending: boolean;
+};
+
+/** Bytes of a file verified to still belong to the selected composer.
+ * 선택한 작성창에 계속 첨부되어 있는지 확인한 파일의 바이트입니다. */
+export type ComposerAttachmentData = {
+  name: string;
+  type: string;
+  size: number;
+  data: ArrayBuffer;
+};
+
 /**
  * Initial value passed to the onAttachmentPreview transform hook. A handler
  * may return a different `previewUrl` (e.g. a proxied/sanitised URL) or a
