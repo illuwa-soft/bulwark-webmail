@@ -6,6 +6,8 @@
 
 The plugin needs `ui:office-editor`, `ui:app-page`, and `http:post`, including consent for user-installed plugins. Standard package approval rules still apply. The plugin remains `untrusted`; this API does not grant `crypto:full` or the privileged execution tier.
 
+This server-backed feature is excluded from Lite at build time. Lite never mounts `OfficeWorkspace` and refuses the API even if a plugin declares the grants; its export verifier still rejects undocumented server endpoints.
+
 `OfficeWorkspace` keeps the library slot mounted but hidden while `OfficeEditorView` mounts a sibling iframe outside the plugin sandbox. The editor must be on a different exact HTTPS origin listed in the plugin's validated `frameOrigins`. The host accepts only the gateway's `/api/v1/eurooffice/embed/<sessionId>#<one-time-ticket>` document, never a caller-supplied URL, header, or script. The document-server SDK executes on that separate origin, not in the mail window.
 
 The operator routes `/api/v1/eurooffice-plugin` and its upload path to the document gateway. The host POST adapter attaches the current native account's credentials; the plugin and editor do not receive them. The API only works while that plugin's app page has a mounted host. A plugin cannot target another plugin's page.

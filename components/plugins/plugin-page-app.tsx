@@ -22,6 +22,7 @@ import { useDocumentTitle } from "@/hooks/use-document-title";
 import { findPage, subscribePages } from "@/lib/plugin-sandbox/pages";
 import { offersForSlot, subscribe as subscribeSlots } from "@/lib/plugin-sandbox/registry";
 import { cn } from "@/lib/utils";
+import { IS_LITE } from "@/lib/lite";
 
 export interface PluginPageAppProps {
   /** Path segments after `/apps`: `[pluginId, pageId, ...subPath]`. */
@@ -152,7 +153,7 @@ export function PluginPageApp({ linkSegments = [] }: PluginPageAppProps) {
         <div className="flex flex-col flex-1 min-w-0">
           {inlineApp && <InlineAppView apps={loadedApps} activeAppId={inlineApp.id} onClose={closeInlineApp} />}
           <div className={cn("flex flex-col flex-1 min-h-0", inlineApp && "hidden")}>
-            <OfficeWorkspace pluginId={pluginId}>{content}</OfficeWorkspace>
+            {IS_LITE ? content : <OfficeWorkspace pluginId={pluginId}>{content}</OfficeWorkspace>}
           </div>
           {isMobile && !isEmbedded && (
             <NavigationRail
