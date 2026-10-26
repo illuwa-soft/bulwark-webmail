@@ -16,6 +16,7 @@ import { emailSummary, emailToReadView } from '../plugin-projection';
 import { MAX_PLUGIN_FETCH_BYTES, readBoolean, readId, readInteger, readObject, readString, sessionClient, withinRate } from './host-api-input';
 import { writeScope } from './host-api-write-scope';
 import { allowEmailMove, emitEmailMove } from '../plugin-mail-hooks';
+import { emailKeyFor } from '../thread-utils';
 
 /** Most messages one api.email.list call returns. */
 export const MAX_PLUGIN_EMAIL_PAGE = 100;
@@ -220,11 +221,32 @@ function readIdList(value: unknown, method: string): string[] {
   return [...new Set(value.map((id, i) => readId(id, method, `emailIds[${i}]`)))];
 }
 
-/**
- * Move messages of the signed-in account into one of its folders, through
- * the store, so the list updates and onBeforeEmailMove / onEmailMove (and the
- * archive hooks for the archive folder) run like for a move the user made.
- */
+/** Reflect a confirmed primary-account move without dropping same-ID rows of another account. */
+function reflectPrimaryMove(client: IJMAPClient, emailIds: string[]) {
+  const ids = new Set(emailIds);
+  const primary = client.getAccountId();
+  const moved = (email: Email) => {
+    if (!ids.has(email.id)) return false;
+    const owner = resolveEmailBlobContext(email, client);
+    return owner.client === client && (owner.accountId ?? primary) === primary;
+  };
+  useEmailStore.setState((state) => {
+    const selectedEmailKeys = new Set(state.selectedEmailKeys);
+    for (const email of state.emails) if (moved(email)) selectedEmailKeys.delete(emailKeyFor(email));
+    let selectedEmail = state.selectedEmail;
+    if (selectedEmail && moved(selectedEmail)) {
+      selectedEmailKeys.delete(emailKeyFor(selectedEmail));
+      selectedEmail = null;
+    }
+    return {
+      emails: state.emails.filter(email => !moved(email)),
+      selectedEmail,
+      selectedEmailKeys,
+    };
+  });
+}
+
+/** Move primary IDs even when unloaded; native hooks and the scoped list still follow confirmed writes. */
 export async function doEmailMove(plugin: InstalledPlugin, emailIdsArg: unknown, mailboxIdArg: unknown): Promise<void> {
   const method = 'email.move';
   const emailIds = readIdList(emailIdsArg, method);
@@ -241,6 +263,7 @@ export async function doEmailMove(plugin: InstalledPlugin, emailIdsArg: unknown,
   scope.check();
   await scope.client.batchMoveEmails(emailIds, mailboxId, scope.client.getAccountId());
   scope.check();
+  reflectPrimaryMove(scope.client, emailIds);
   emitEmailMove(move, mailboxes);
   void useEmailStore.getState().fetchMailboxes(scope.client).catch(() => {});
 }
