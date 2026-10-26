@@ -1,4 +1,7 @@
-export const OFFICE_API_PATH = '/api/v1/eurooffice-plugin';
+// Inline the build flag so Lite has no configured backend, even when Turbopack retains an inert helper module.
+// Turbopack이 비활성 helper를 남겨도 Lite에 서버 경로가 설정되지 않도록 빌드 플래그를 직접 사용합니다.
+export const OFFICE_API_PATH = process.env.NEXT_PUBLIC_BULWARK_LITE === '1' ? null : '/api/v1/eurooffice-plugin';
+const OFFICE_FRAME_PREFIX = process.env.NEXT_PUBLIC_BULWARK_LITE === '1' ? null : '/api/v1/eurooffice/embed/';
 
 export type OfficeCommand =
   | { action: 'session.open'; fileId: string }
@@ -32,13 +35,14 @@ export function readReceipt(value: unknown, sessionId?: string): OfficeReceipt {
 /** Admit one exact, cross-origin editor document, never an arbitrary navigation URL.
  * 임의 탐색 URL 대신 정확히 허용한 별도 출처의 편집 문서 하나만 허용합니다. */
 export function readDocument(value: unknown, hostOrigin: string, allowedOrigins: readonly string[], channel: string): OfficeDocument {
+  if (!OFFICE_FRAME_PREFIX) throw new Error('Office editors require the full app');
   const receipt = readReceipt(value);
   const data = object(value);
   if (typeof data.fileName !== 'string' || !data.fileName || data.fileName.length > 512) throw new Error('Invalid Office filename');
   if (typeof data.editorUrl !== 'string') throw new Error('Invalid Office frame');
   const url = new URL(data.editorUrl);
   if (url.protocol !== 'https:' || url.origin === hostOrigin || !allowedOrigins.includes(url.origin)) throw new Error('Office requires an approved, separate HTTPS origin');
-  if (url.username || url.password || url.search || url.pathname !== `/api/v1/eurooffice/embed/${receipt.sessionId}`) throw new Error('Invalid Office frame path');
+  if (url.username || url.password || url.search || url.pathname !== `${OFFICE_FRAME_PREFIX}${receipt.sessionId}`) throw new Error('Invalid Office frame path');
   if (!/^#[A-Za-z0-9_-]{40,128}$/.test(url.hash)) throw new Error('Invalid Office bootstrap grant');
   url.hash += `.${channel}`;
   return { ...receipt, fileName: data.fileName, editorUrl: url.href };

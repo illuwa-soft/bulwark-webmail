@@ -1865,7 +1865,8 @@ export async function dispatchApiCall(
 
   switch (method) {
     case 'office.openEditor': {
-      if (IS_LITE) throw new Error('Office editors require the full app');
+      const apiPath = OFFICE_API_PATH;
+      if (IS_LITE || !apiPath) throw new Error('Office editors require the full app');
       const input = object(args[0]);
       if (Object.keys(input).length !== 1 || typeof input.fileId !== 'string' || !input.fileId || input.fileId.length > 256) throw new Error('office.openEditor requires only fileId');
       if (!pluginHasPermission(plugin, 'http:post') || !pluginHasPermission(plugin, 'ui:app-page')) throw new Error('Office needs its app page and authenticated API');
@@ -1875,7 +1876,7 @@ export async function dispatchApiCall(
         hostOrigin: window.location.origin,
         allowedOrigins: plugin.frameOrigins ?? [],
         request: async command => {
-          const response = await doHttpPost(plugin, OFFICE_API_PATH, command);
+          const response = await doHttpPost(plugin, apiPath, command);
           if (!response.ok) throw new Error(`Office request failed (${response.status})`);
           return response.data;
         },
