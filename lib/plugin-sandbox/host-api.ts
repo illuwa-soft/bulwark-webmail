@@ -58,6 +58,7 @@ import { doNotificationsShow } from './host-api-notify';
 import { setSectionTitle } from './section-titles';
 import { requestPanel } from './panel-requests';
 import { doComposerAttach, doComposerGetBody, doComposerGetSelection, doComposerReplaceBody, doComposerReplaceSelection } from './host-api-composer';
+import { doReadPage, doFilesReadText } from './host-api-read-pages';
 
 /**
  * Methods only callable from the privileged (same-origin) tier. These expose
@@ -96,6 +97,11 @@ const PRIVILEGED_ONLY_METHODS = new Set<string>([
 ]);
 
 export const PERM_PER_METHOD: Readonly<Record<string, Permission | null>> = {
+  'email.query': 'email:read',
+  'calendar.queryEvents': 'calendar:read',
+  'contact.query': 'contacts:read',
+  'files.query': 'files:read',
+  'files.readText': 'files:read',
   // storage is unscoped by the manifest - implicit.
   'storage.get': null,
   'storage.set': null,
@@ -1855,6 +1861,11 @@ export async function dispatchApiCall(
   }
 
   switch (method) {
+    case 'email.query':
+    case 'calendar.queryEvents':
+    case 'contact.query':
+    case 'files.query': return doReadPage(plugin, method, args[0]);
+    case 'files.readText': return doFilesReadText(plugin, args[0], args[1]);
     case 'proxy.fetch': return proxyFetch(plugin, args, opts?.sink ?? null);
     case 'proxy.cancel': proxyCancel(plugin, args[0]); return undefined;
     case 'proxy.connect': return proxyConnect(plugin, args);

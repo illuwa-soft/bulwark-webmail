@@ -5,6 +5,7 @@ import type { SortLevel } from "@/lib/message-list-order";
 import type { SearchSnippetResult } from "@/lib/search-snippet";
 import type { StorageQuota } from "@/lib/quota";
 import type { MessagePriority } from "@/lib/message-priority";
+import type { ReadCollection, ReadPageRequest, ReadPageResult } from './read-page';
 
 /** What `migrateKeyword` managed to do. */
 export interface KeywordMigration {
@@ -70,6 +71,8 @@ export interface SearchEmailsResult {
 }
 
 export interface IJMAPClient {
+  /** One bounded, exact query page in the primary account for this collection. */
+  queryReadPage<C extends ReadCollection>(query: ReadPageRequest<C>): Promise<ReadPageResult<C>>;
   // ── Connection lifecycle ──────────────────────────────────────
   connect(): Promise<void>;
   disconnect(): void;

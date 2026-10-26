@@ -40,6 +40,7 @@ import type {
 } from '../plugin-types';
 import { AddressBook, ContactCard } from '../jmap/types';
 import { EncryptionAtRestConfig, PublicKeyInput } from '@/stores/account-security-store';
+import type { EmailQueryOptions, EmailQueryPage, CalendarQueryOptions, CalendarQueryPage, ContactQueryOptions, ContactQueryPage, FileQueryOptions, FileQueryPage, FileText } from '../plugin-read-types';
 
 // ─── Module-scope state ──────────────────────────────────────
 
@@ -466,7 +467,12 @@ function buildPluginApi(manifest: PluginManifest) {
         opts?:  { keywords?: Record<string, boolean>; accountId?: string },
       ) => callApi('jmap.importRaw', [rawBytes, mailboxRoles, opts]),
     },
+    files: {
+      query: (options?: FileQueryOptions) => callApi('files.query', [options]) as Promise<FileQueryPage>,
+      readText: (id: string, options?: { maxBytes?: number }) => callApi('files.readText', [id, options], NETWORK_API_TIMEOUT_MS) as Promise<FileText>,
+    },
     contacts: {
+      query: (options?: ContactQueryOptions) => callApi('contact.query', [options]) as Promise<ContactQueryPage>,
       get: (contactId: string) => callApi('contact.get', [contactId]) as Promise<ContactCard | null>,
       update: (contactId: string, updates: Partial<ContactCard>) => callApi('contact.update', [contactId, updates]) as Promise<void>,
       create: (contact: ContactCard) => callApi('contact.create', [contact]) as Promise<ContactCard>,
@@ -629,6 +635,8 @@ function buildPluginApi(manifest: PluginManifest) {
     // (permission: email:write). Keywords follow JMAP syntax, e.g.
     // '$category-promotions' or '$label:<tagId>'.
     email: {
+      /** Exact primary-account total; bounded pages, or limit:0 for count only. */
+      query: (options?: EmailQueryOptions) => callApi('email.query', [options]) as Promise<EmailQueryPage>,
       /**
        * One message with its plain text, headers and source, or null when
        * there is none with that id. Any message of the account, not only the
@@ -783,6 +791,8 @@ function buildPluginApi(manifest: PluginManifest) {
     // plugins' hooks run and may stop them. Nothing here sends invitations,
     // updates or cancellations to participants.
     calendar: {
+      /** Stored event records (series are not expanded); an opaque continuation detects changes. */
+      queryEvents: (options?: CalendarQueryOptions) => callApi('calendar.queryEvents', [options]) as Promise<CalendarQueryPage>,
       /** The user's calendars. */
       listCalendars: () => callApi('calendar.listCalendars', []) as Promise<CalendarView[]>,
       /**
