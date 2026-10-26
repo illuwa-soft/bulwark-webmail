@@ -63,6 +63,18 @@ All four share [single sign-on](https://bulwarkmail.org/docs/getting-started/con
 
 There are two [editions](https://bulwarkmail.org/docs/getting-started/editions). The full edition runs as a Node.js server and adds the admin dashboard, OAuth, plugins and settings sync. [Bulwark Lite](https://bulwarkmail.org/docs/getting-started/lite) is the same client as static files, served by any web host or by Stalwart itself.
 
+### Saved accounts in the Illuwa fork
+
+Account-list metadata is retained on this device for **100 calendar years** from
+the last successful sign-in. Existing entries receive the same retention period.
+Signing out or losing an authentication session leaves the account selectable for
+a fresh sign-in; **Remove account** explicitly forgets it. The login page also
+lists signed-out accounts, including the server each account belongs to.
+
+This retention covers account names and server addresses, not authentication
+lifetimes or passwords. Clearing this site's browser data removes the local list.
+The existing encrypted account archive can be used for recovery on another device.
+
 ## Quick start
 
 ```bash

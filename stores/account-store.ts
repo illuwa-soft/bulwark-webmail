@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { generateAccountId, generateAvatarColor, getMaxAccounts } from '@/lib/account-utils';
 import { authHooks } from '@/lib/plugin-hooks';
+import { accountListRetainedUntil } from '@/lib/account-retention';
 
 export interface AccountEntry {
   /** Unique key: `${username}@${serverHostname}` */
@@ -43,6 +44,8 @@ export interface AccountEntry {
   avatarColor: string;
   /** Timestamp of last successful login */
   lastLoginAt: number;
+  /** Account-list metadata expiry, independent of the login session. / 로그인 세션과 별개인 계정 목록 보존 기한입니다. */
+  listRetainedUntil?: number;
   /** Whether this account is currently connected */
   isConnected: boolean;
   /** Whether this account had a connection error */
@@ -51,8 +54,8 @@ export interface AccountEntry {
   /** Whether this is the default account (loaded on app start) */
   isDefault: boolean;
   /**
-   * Brought back from the account list backup and not signed in on this
-   * device yet. Kept across reloads, and opening it leads to the sign-in form.
+   * Saved on this device but currently signed out, including expired sessions
+   * and accounts restored from a backup. Opening it leads to the sign-in form.
    */
   awaitingSignIn?: boolean;
 }
@@ -64,6 +67,8 @@ interface AccountState {
 
   addAccount: (entry: Omit<AccountEntry, 'id' | 'cookieSlot' | 'avatarColor'>) => string;
   removeAccount: (accountId: string) => void;
+  /** Keep the account selectable after ending its session. / 세션 종료 후에도 계정 항목을 유지합니다. */
+  requireSignIn: (accountId: string) => void;
   setActiveAccount: (accountId: string) => void;
   setDefaultAccount: (accountId: string) => void;
   getDefaultAccount: () => AccountEntry | null;
@@ -86,6 +91,7 @@ export const useAccountStore = create<AccountState>()(
         const state = get();
 
         const id = generateAccountId(entry.username, entry.serverUrl);
+        const listRetainedUntil = accountListRetainedUntil(entry.lastLoginAt);
         if (state.accounts.some((a) => a.id === id)) {
           // Already exists - update mutable fields and return existing id
           set((s) => ({
@@ -98,6 +104,7 @@ export const useAccountStore = create<AccountState>()(
                     hasError: entry.hasError,
                     errorMessage: undefined,
                     lastLoginAt: entry.lastLoginAt,
+                    listRetainedUntil,
                     authMode: entry.authMode,
                     // Any sign-in ends the wait, whichever way it went.
                     awaitingSignIn: entry.awaitingSignIn,
@@ -119,6 +126,7 @@ export const useAccountStore = create<AccountState>()(
 
         const account: AccountEntry = {
           ...entry,
+          listRetainedUntil,
           id,
           cookieSlot,
           avatarColor,
@@ -134,6 +142,18 @@ export const useAccountStore = create<AccountState>()(
         void authHooks.onAccountAdd.emit({ accountId: id });
 
         return id;
+      },
+
+      /** Retain metadata while dropping the live-session state. / 연결 상태를 정리하고 계정 메타데이터를 보존합니다. */
+      requireSignIn: (accountId) => {
+        get().updateAccount(accountId, {
+          awaitingSignIn: true,
+          isConnected: false,
+          hasError: false,
+          errorMessage: undefined,
+          rememberMe: false,
+          providerSession: false,
+        });
       },
 
       removeAccount: (accountId) => {
@@ -192,9 +212,13 @@ export const useAccountStore = create<AccountState>()(
       },
 
       updateAccount: (accountId, updates) => {
+        const retainedUpdates = { ...updates };
+        if (updates.lastLoginAt !== undefined) {
+          retainedUpdates.listRetainedUntil = accountListRetainedUntil(updates.lastLoginAt);
+        }
         set((s) => ({
           accounts: s.accounts.map((a) =>
-            a.id === accountId ? { ...a, ...updates } : a
+            a.id === accountId ? { ...a, ...retainedUpdates } : a
           ),
         }));
       },
@@ -256,11 +280,20 @@ export const useAccountStore = create<AccountState>()(
       // (#950).
       onRehydrateStorage: () => (state) => {
         if (!state) return;
-        state.accounts = state.accounts.map((a) => (
-          a.isConnected || a.hasError
-            ? { ...a, isConnected: false, hasError: false, errorMessage: undefined }
-            : a
-        ));
+        state.accounts = state.accounts.map((account) => ({
+          ...account,
+          listRetainedUntil: account.listRetainedUntil ?? accountListRetainedUntil(account.lastLoginAt),
+          isConnected: false,
+          hasError: false,
+          errorMessage: undefined,
+        })).filter((account) => account.listRetainedUntil > Date.now());
+        if (!state.accounts.some((account) => account.id === state.activeAccountId)) {
+          state.activeAccountId = state.accounts[0]?.id ?? null;
+        }
+        if (!state.accounts.some((account) => account.id === state.defaultAccountId)) {
+          state.defaultAccountId = state.accounts[0]?.id ?? null;
+          state.accounts = state.accounts.map((account) => ({ ...account, isDefault: account.id === state.defaultAccountId }));
+        }
       },
     }
   )

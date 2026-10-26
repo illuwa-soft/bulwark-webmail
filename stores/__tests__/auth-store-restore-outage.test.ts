@@ -80,9 +80,9 @@ it.each([
   expect(credentialsCleared()).toBe(false);
 });
 
-it('signs out on a real rejection', async () => {
+it('keeps the account awaiting sign-in on a real rejection', async () => {
   connectError.current = () => new Error('Failed to get session: 401');
   await useAuthStore.getState().checkAuth();
-  expect(useAccountStore.getState().getAccountById(account.id)).toBeUndefined();
+  expect(useAccountStore.getState().getAccountById(account.id)).toMatchObject({ awaitingSignIn: true, isConnected: false });
   await vi.waitFor(() => expect(credentialsCleared()).toBe(true));
 });

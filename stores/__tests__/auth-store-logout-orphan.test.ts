@@ -77,7 +77,8 @@ it('signing out leaves no other account resumable', async () => {
   useAccountStore.getState().updateAccount(B.id, { hasError: true, errorMessage: 'Server unreachable' });
 
   await useAuthStore.getState().logout(); // "Sign out"
-  expect(useAccountStore.getState().accounts).toEqual([]);
+  expect(useAccountStore.getState().accounts.map(entry => entry.id)).toEqual([B.id, A.id]);
+  expect(useAccountStore.getState().accounts.every(entry => entry.awaitingSignIn && !entry.isConnected)).toBe(true);
   expect(jar.size).toBe(0);
 
   // Next visitor opens the app in the same browser.
