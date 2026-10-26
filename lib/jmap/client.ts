@@ -18,6 +18,7 @@ import { contactFromWire, contactToWire } from "./contact-wire";
 import { SchedulingDeniedError } from "./scheduling-error";
 import { PrincipalsRequestError } from "./principals-error";
 import { RescheduleRestoredError } from "./reschedule-error";
+import { queryReadPage, type ReadCollection, type ReadPageRequest, type ReadPageResult } from './read-page';
 
 export { SchedulingDeniedError, RescheduleRestoredError };
 import { acceptedFileName, fileNameRulesFrom, type FileNameRules } from "@/lib/file-name-rules";
@@ -2036,6 +2037,31 @@ export class JMAPClient implements IJMAPClient {
     }
     const polarity = await this.resolveKeywordSortPolarity(accountId);
     return { sort: buildEmailSort(order, { pinnedFirst, polarity }), keywordSortSupported: true };
+  }
+
+  async queryReadPage<C extends ReadCollection>(query: ReadPageRequest<C>): Promise<ReadPageResult<C>> {
+    const scopes = {
+      Email: () => ({ accountId: this.accountId, using: ['urn:ietf:params:jmap:core', 'urn:ietf:params:jmap:mail'] }),
+      ContactCard: () => ({ accountId: this.getContactsAccountId(), using: this.contactUsing() }),
+      CalendarEvent: () => ({ accountId: this.getCalendarsAccountId(), using: this.calendarUsing() }),
+      FileNode: () => ({ accountId: this.getFilesAccountId(), using: this.fileUsing() }),
+    };
+    const { accountId, using } = scopes[query.collection]();
+    const options: Record<string, unknown> = {};
+    if (query.collection === 'Email') options.sort = [{ property: 'receivedAt', isAscending: false }];
+    if (query.collection === 'CalendarEvent') {
+      options.sort = [{ property: 'start', isAscending: true }];
+      const timeZone = getUserTimeZone();
+      if (timeZone) options.timeZone = timeZone;
+      query = { ...query, filter: { ...query.filter } };
+      for (const bound of ['after', 'before']) {
+        if (typeof query.filter[bound] === 'string') query.filter[bound] = toLocalDateTime(query.filter[bound] as string, timeZone);
+      }
+    }
+    const page = await queryReadPage(query, accountId, this.getMaxObjectsInGet(), calls => this.request(calls, using), options);
+    if (query.collection === 'ContactCard') page.items = (page.items as ContactCard[]).map(contactFromWire) as ReadPageResult<C>['items'];
+    if (query.collection === 'FileNode') page.items = (page.items as FileNode[]).map(fromWireFileNode) as ReadPageResult<C>['items'];
+    return page;
   }
 
   // Throws when the page cannot be read. Answering with an empty page made a

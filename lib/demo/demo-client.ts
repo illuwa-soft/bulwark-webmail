@@ -12,6 +12,7 @@ import { compareEmails, type SortLevel } from '@/lib/message-list-order';
 import { withBasePath } from '@/lib/browser-navigation';
 import { toInertBlob } from '@/lib/file-preview';
 import type { StorageQuota } from "@/lib/quota";
+import type { ReadCollection, ReadPageRequest, ReadPageResult, ReadRecords } from '@/lib/jmap/read-page';
 
 // Fixture blobs with real bytes behind them, served from public/demo/ (see
 // fixtures/assets.ts for the list and the licences). Any other blob id falls
@@ -317,6 +318,37 @@ export class DemoJMAPClient implements IJMAPClient {
     }
     const sharedIds = new Set(Object.values(shared).flatMap((s) => s.mailboxes.map((m) => m.id)));
     return (e) => Object.keys(e.mailboxIds).some((id) => e.mailboxIds[id] && !sharedIds.has(id));
+  }
+
+  async queryReadPage<C extends ReadCollection>(query: ReadPageRequest<C>): Promise<ReadPageResult<C>> {
+    const filter = query.filter;
+    let records: (Email | ContactCard | CalendarEvent | FileNode)[] = [];
+    let accountId = this.getAccountId();
+    if (query.collection === 'Email') {
+      records = this.data.emails.filter(this.inAccount(undefined)).filter(e => this.matchesFilter(e, filter))
+        .sort((a, b) => b.receivedAt.localeCompare(a.receivedAt) || a.id.localeCompare(b.id));
+    } else if (query.collection === 'ContactCard') {
+      accountId = this.getContactsAccountId();
+      records = this.data.contacts.filter(c =>
+        (!filter.inAddressBook || c.addressBookIds?.[filter.inAddressBook as string]) &&
+        (!filter.text || JSON.stringify([c.name, c.emails, c.phones, c.organizations, c.notes]).toLowerCase().includes((filter.text as string).toLowerCase())));
+    } else if (query.collection === 'CalendarEvent') {
+      accountId = this.getCalendarsAccountId();
+      records = (await this.queryCalendarEvents(filter as CalendarEventFilter))
+        .filter(e => !Array.isArray(filter.inCalendars) || filter.inCalendars.some(id => e.calendarIds?.[id]))
+        .sort((a, b) => a.start.localeCompare(b.start) || a.id.localeCompare(b.id));
+    } else {
+      accountId = this.getFilesAccountId();
+      records = this.data.fileNodes.filter(n =>
+        (!('parentId' in filter) || n.parentId === filter.parentId) &&
+        (!filter.name || n.name.toLowerCase().includes((filter.name as string).toLowerCase())) &&
+        (!filter.type || n.type === filter.type));
+    }
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(records)));
+    const queryState = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
+    if (query.queryState !== undefined && query.queryState !== queryState) throw new Error('queryChanged: restart the query');
+    return { items: structuredClone(records.slice(query.position, query.position + query.limit)) as ReadRecords[C][],
+      total: records.length, queryState, position: query.position, accountId };
   }
 
   async getEmails(mailboxId?: string, accountId?: string, limit: number = 50, position: number = 0, hasKeyword?: string, pinnedFirst?: boolean, extraFilter?: Record<string, unknown>, order: SortLevel[] = []): Promise<{ emails: Email[]; hasMore: boolean; total: number }> {
