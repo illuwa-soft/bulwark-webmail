@@ -85,6 +85,32 @@ it('signs the JMAP-verified account and never forwards its native password', asy
   expect(headers.get('X-Assistant-Signature')).toBe(signature);
 });
 
+it('follows a same-origin JMAP discovery redirect before attesting the native account', async () => {
+  const network = vi.spyOn(globalThis, 'fetch')
+    .mockResolvedValueOnce(new Response(null, { status: 307, headers: { Location: '/jmap/session' } }))
+    .mockResolvedValueOnce(Response.json({ username: 'verified@example.com' }))
+    .mockResolvedValueOnce(Response.json({ models: [], mcps: [] }));
+  expect((await POST(request())).status).toBe(200);
+  expect(String(network.mock.calls[1][0])).toBe('https://mail.example.com/jmap/session');
+  expect(new Headers(network.mock.calls[1][1]?.headers).get('Authorization')).toBe('Basic native-test-auth');
+  expect(new Headers(network.mock.calls[2][1]?.headers).has('Authorization')).toBe(false);
+});
+
+it('never follows a discovery redirect to a different origin or URL userinfo', async () => {
+  for (const location of ['https://untrusted.example.com/session', 'https://user:password@mail.example.com/session']) {
+    const network = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(null, { status: 307, headers: { Location: location } }));
+    expect((await POST(request())).status).toBe(502);
+    expect(network).toHaveBeenCalledTimes(1);
+    network.mockRestore();
+  }
+});
+
+it('bounds same-origin discovery redirects instead of looping', async () => {
+  const network = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response(null, { status: 307, headers: { Location: '/.well-known/jmap' } }));
+  expect((await POST(request())).status).toBe(502);
+  expect(network).toHaveBeenCalledTimes(4);
+});
+
 it('rejects invalid native sessions and malformed canonical usernames', async () => {
   vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(null, { status: 401 }));
   expect((await POST(request())).status).toBe(401);
