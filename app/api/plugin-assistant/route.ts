@@ -7,6 +7,25 @@ import { rejectCrossOriginRequest } from '@/lib/security/same-origin';
 
 type RelayInput = { path: string; method: string; body?: unknown };
 
+/** Follow bounded discovery redirects only within the verified native origin.
+ * 검증한 네이티브 출처 안에서만 제한된 탐색 리다이렉트를 따릅니다. */
+async function nativeSession(serverUrl: string, authHeader: string): Promise<Response> {
+  const origin = new URL(serverUrl).origin;
+  const signal = AbortSignal.timeout(15000);
+  let current = new URL(`${serverUrl}/.well-known/jmap`);
+  for (let hop = 0; hop <= 3; hop++) {
+    const response = await fetch(current.toString(), { headers: { Authorization: authHeader }, redirect: 'manual', signal });
+    if (response.status < 300 || response.status >= 400) return response;
+    const location = response.headers.get('location');
+    await response.body?.cancel();
+    if (!location) throw new Error('native_discovery_location_missing');
+    const next = new URL(location, current);
+    if (next.origin !== origin || next.username || next.password) throw new Error('native_discovery_origin_changed');
+    current = next;
+  }
+  throw new Error('native_discovery_redirect_limit');
+}
+
 /** Validate the relay envelope without trusting JSON casts or client identity fields.
  * JSON 형 변환이나 클라이언트 계정 필드를 신뢰하지 않고 중계 입력을 검증합니다. */
 function readRelayInput(raw: string): RelayInput | null {
@@ -42,7 +61,7 @@ export async function POST(request: NextRequest) {
   const input = readRelayInput(raw);
   if (!input || !['GET', 'POST', 'PUT', 'DELETE'].includes(input.method) || !/^\/api\/(settings|models(?:\/test)?|mcps(?:\/test)?|connections\/(?:model|mcp)\/[a-z0-9-]+|reviews(?:\/[a-z0-9.-]+(?:\/cancel)?)?|runs\/[a-z0-9.-]+\/abort)$/.test(input.path)) return NextResponse.json({ error: 'invalid_route' }, { status: 400 });
   try {
-    const session = await fetch(`${credentials.serverUrl}/.well-known/jmap`, { headers: { Authorization: credentials.authHeader }, redirect: 'error', signal: AbortSignal.timeout(15000) });
+    const session = await nativeSession(credentials.serverUrl, credentials.authHeader);
     if (!session.ok) return NextResponse.json({ error: 'native_auth_failed' }, { status: 401 });
     const identity = await session.json() as { username?: string };
     if (typeof identity.username !== 'string' || !identity.username) return NextResponse.json({ error: 'native_identity_missing' }, { status: 401 });
