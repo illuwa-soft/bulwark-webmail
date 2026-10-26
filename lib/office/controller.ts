@@ -151,7 +151,9 @@ export function createOfficeController(identity: () => string, options: { pollMs
       catch { if (attempt === epoch) error(messages.closeError); return false; }
     }
     const resolve = finish;
-    const receipt = store.getState().document;
+    const document = store.getState().document;
+    let receipt: OfficeReceipt | null = null;
+    if (document) receipt = { sessionId: document.sessionId, state: document.state, savedAt: document.savedAt, saveRequestId: document.saveRequestId };
     reset();
     resolve?.(receipt);
     return true;

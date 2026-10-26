@@ -35,7 +35,10 @@ describe('host-owned Office editor', () => {
     expect(await controller.close(() => false)).toBe(false);
     expect(controller.store.getState().dirty).toBe(true);
     expect(await controller.close(() => true)).toBe(true);
-    expect(await result).toMatchObject({ state: 'closed', saveRequestId: 'save-a' });
+    const receipt = await result;
+    expect(receipt).toMatchObject({ state: 'closed', saveRequestId: 'save-a' });
+    expect(receipt).not.toHaveProperty('editorUrl');
+    expect(receipt).not.toHaveProperty('fileName');
     expect(request.mock.calls.filter(([command]) => command.action === 'session.save')).toHaveLength(1);
   });
   it('never treats an older receipt or an editor saved message as the requested native commit', async () => {
