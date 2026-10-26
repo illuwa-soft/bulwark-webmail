@@ -4410,6 +4410,7 @@
         "title": "Pievienot lapas",
         "body": "Pievienot lietotnei savas lapas, katru ar pogu navigācijas joslā."
       },
+      "ui_office_editor": { "title": "Edit documents inside the app", "body": "Open selected documents in an approved editor inside {appName}. The editor receives their content and can save changes through the document gateway." },
       "http_proxy": {
         "title": "Izmantot jūsu savienotos kontus",
         "body": "Sūtīt pieprasījumus caur {appName} serveri ar kontu vai atslēgu, ko iestatījāt jūs vai jūsu administrators. Spraudnis nekad neredz paroli, taču tas var darīt visu, ko šis konts var darīt savā serverī."

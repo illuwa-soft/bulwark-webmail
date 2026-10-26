@@ -538,6 +538,10 @@ function buildPluginApi(manifest: PluginManifest) {
       info: (m: string) => { void callApi('toast.info', [m]); },
       warning: (m: string) => { void callApi('toast.warning', [m]); },
     },
+    office: {
+      /** Opens a host-owned cross-origin editor inside this plugin's app page, until closed. */
+      openEditor: (input: { fileId: string }) => callApi('office.openEditor', [input], 0),
+    },
     ui: {
       /** Opens a host-rendered confirm dialog. Resolves to true on confirm, false otherwise.
        *  No timeout - it waits for the user's choice. */

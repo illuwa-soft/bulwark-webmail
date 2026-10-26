@@ -4410,6 +4410,7 @@
         "title": "ページを追加",
         "body": "アプリに独自のページを追加し、それぞれのボタンをナビゲーションバーに表示します。"
       },
+      "ui_office_editor": { "title": "Edit documents inside the app", "body": "Open selected documents in an approved editor inside {appName}. The editor receives their content and can save changes through the document gateway." },
       "http_proxy": {
         "title": "接続したアカウントを使用",
         "body": "あなたまたは管理者が設定したアカウントやキーを使って、{appName} のサーバー経由でリクエストを送信します。プラグインがパスワードを見ることはありませんが、そのアカウントがそのサーバーでできることはすべて実行できます。"

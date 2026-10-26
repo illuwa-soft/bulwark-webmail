@@ -4410,6 +4410,7 @@
         "title": "Хуудас нэмэх",
         "body": "Аппад өөрийн хуудсуудыг нэмэх, тус бүр навигацын мөрөнд товчтой."
       },
+      "ui_office_editor": { "title": "Edit documents inside the app", "body": "Open selected documents in an approved editor inside {appName}. The editor receives their content and can save changes through the document gateway." },
       "http_proxy": {
         "title": "Таны холбосон бүртгэлүүдийг ашиглах",
         "body": "Таны эсвэл администраторын тохируулсан бүртгэл эсвэл түлхүүрээр {appName}-ийн серверээр дамжуулан хүсэлт илгээх. Залгаас нууц үгийг хэзээ ч харахгүй, гэхдээ тухайн бүртгэлийн өөрийн сервер дээр хийж чадах бүх зүйлийг хийж чадна."

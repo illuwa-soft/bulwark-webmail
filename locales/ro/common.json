@@ -4410,6 +4410,7 @@
         "title": "Adăugarea de pagini",
         "body": "Adaugă pagini proprii în aplicație, fiecare cu un buton în bara de navigare."
       },
+      "ui_office_editor": { "title": "Edit documents inside the app", "body": "Open selected documents in an approved editor inside {appName}. The editor receives their content and can save changes through the document gateway." },
       "http_proxy": {
         "title": "Folosirea conturilor pe care le conectați",
         "body": "Trimite cereri prin serverul {appName} cu un cont sau o cheie configurate de dvs. sau de administratorul dvs. Pluginul nu vede niciodată parola, dar poate face tot ce poate face acel cont pe serverul său."

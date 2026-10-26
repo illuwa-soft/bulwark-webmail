@@ -4410,6 +4410,7 @@
         "title": "Saját oldalak",
         "body": "Saját oldalakat ad az alkalmazáshoz, mindegyiket egy gombbal a navigációs sávon."
       },
+      "ui_office_editor": { "title": "Edit documents inside the app", "body": "Open selected documents in an approved editor inside {appName}. The editor receives their content and can save changes through the document gateway." },
       "http_proxy": {
         "title": "Az általad csatlakoztatott fiókok használata",
         "body": "Kéréseket küld a(z) {appName} szerverén keresztül egy olyan fiókkal vagy kulccsal, amelyet te vagy a rendszergazdád állított be. A bővítmény soha nem látja a jelszót, de bármit megtehet, amit az a fiók a saját szerverén megtehet."

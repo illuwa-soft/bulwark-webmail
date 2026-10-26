@@ -4410,6 +4410,7 @@
         "title": "Додавати сторінки",
         "body": "Додавати до програми власні сторінки, кожну з кнопкою на панелі навігації."
       },
+      "ui_office_editor": { "title": "Edit documents inside the app", "body": "Open selected documents in an approved editor inside {appName}. The editor receives their content and can save changes through the document gateway." },
       "http_proxy": {
         "title": "Використовувати підключені вами облікові записи",
         "body": "Надсилати запити через сервер {appName} з обліковим записом або ключем, який налаштували ви або ваш адміністратор. Плагін ніколи не бачить пароль, але може робити на цьому сервері все, що може цей обліковий запис."

@@ -59,6 +59,8 @@ import { setSectionTitle } from './section-titles';
 import { requestPanel } from './panel-requests';
 import { doComposerAttach, doComposerGetBody, doComposerGetSelection, doComposerReplaceBody, doComposerReplaceSelection } from './host-api-composer';
 import { doReadPage, doFilesReadText } from './host-api-read-pages';
+import { OFFICE_API_PATH, object } from '../office/contracts';
+import { requestOfficeEditor } from '../office/requests';
 
 /**
  * Methods only callable from the privileged (same-origin) tier. These expose
@@ -227,6 +229,7 @@ export const PERM_PER_METHOD: Readonly<Record<string, Permission | null>> = {
   'ui.refreshRowBadges': null,
   'ui.setDayLabels': 'ui:calendar-action',
   'ui.setPages': 'ui:app-page',
+  'office.openEditor': 'ui:office-editor',
   'ui.setSectionTitle': 'ui:sidebar-widget',
   // Open, close or toggle the panel the plugin's slot sits in; the panel's
   // own permission is checked per call (see the slot catalogue).
@@ -1861,6 +1864,22 @@ export async function dispatchApiCall(
   }
 
   switch (method) {
+    case 'office.openEditor': {
+      const input = object(args[0]);
+      if (Object.keys(input).length !== 1 || typeof input.fileId !== 'string' || !input.fileId || input.fileId.length > 256) throw new Error('office.openEditor requires only fileId');
+      if (!pluginHasPermission(plugin, 'http:post') || !pluginHasPermission(plugin, 'ui:app-page')) throw new Error('Office needs its app page and authenticated API');
+      return requestOfficeEditor({
+        fileId: input.fileId,
+        pluginId: plugin.id,
+        hostOrigin: window.location.origin,
+        allowedOrigins: plugin.frameOrigins ?? [],
+        request: async command => {
+          const response = await doHttpPost(plugin, OFFICE_API_PATH, command);
+          if (!response.ok) throw new Error(`Office request failed (${response.status})`);
+          return response.data;
+        },
+      });
+    }
     case 'email.query':
     case 'calendar.queryEvents':
     case 'contact.query':

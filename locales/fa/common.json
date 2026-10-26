@@ -4410,6 +4410,7 @@
         "title": "افزودن صفحه",
         "body": "افزودن صفحه‌های خودش به برنامه، هر کدام با یک دکمه در نوار ناوبری."
       },
+      "ui_office_editor": { "title": "Edit documents inside the app", "body": "Open selected documents in an approved editor inside {appName}. The editor receives their content and can save changes through the document gateway." },
       "http_proxy": {
         "title": "استفاده از حساب‌هایی که متصل می‌کنید",
         "body": "ارسال درخواست از طریق سرور {appName} با حساب یا کلیدی که شما یا مدیرتان راه‌اندازی کرده‌اید. افزونه هرگز گذرواژه را نمی‌بیند، اما می‌تواند هر کاری را که آن حساب روی سرور خودش می‌تواند انجام دهد، انجام دهد."

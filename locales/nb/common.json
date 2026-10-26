@@ -4410,6 +4410,7 @@
         "title": "Legge til sider",
         "body": "Legge til egne sider i appen, hver med en knapp i navigasjonsfeltet."
       },
+      "ui_office_editor": { "title": "Edit documents inside the app", "body": "Open selected documents in an approved editor inside {appName}. The editor receives their content and can save changes through the document gateway." },
       "http_proxy": {
         "title": "Bruke kontoer du kobler til",
         "body": "Sende forespørsler via {appName}s server med en konto eller nøkkel som du eller administratoren din har satt opp. Tillegget ser aldri passordet, men det kan gjøre alt den kontoen kan gjøre på sin egen server."

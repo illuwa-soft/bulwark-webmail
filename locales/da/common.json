@@ -4410,6 +4410,7 @@
         "title": "Tilføje sider",
         "body": "Tilføje sine egne sider til appen, hver med en knap på navigationslinjen."
       },
+      "ui_office_editor": { "title": "Edit documents inside the app", "body": "Open selected documents in an approved editor inside {appName}. The editor receives their content and can save changes through the document gateway." },
       "http_proxy": {
         "title": "Bruge konti, du forbinder",
         "body": "Sende forespørgsler via {appName}s server med en konto eller nøgle, som du eller din administrator har sat op. Pluginnet ser aldrig adgangskoden, men det kan gøre alt, hvad kontoen kan gøre på sin egen server."

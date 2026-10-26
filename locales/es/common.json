@@ -4410,6 +4410,7 @@
         "title": "Añadir páginas",
         "body": "Añadir sus propias páginas a la aplicación, cada una con un botón en la barra de navegación."
       },
+      "ui_office_editor": { "title": "Edit documents inside the app", "body": "Open selected documents in an approved editor inside {appName}. The editor receives their content and can save changes through the document gateway." },
       "http_proxy": {
         "title": "Usar las cuentas que conectes",
         "body": "Enviar solicitudes a través del servidor de {appName} con una cuenta o clave configurada por ti o por tu administrador. El complemento nunca ve la contraseña, pero puede hacer todo lo que esa cuenta puede hacer en su propio servidor."

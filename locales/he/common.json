@@ -4411,6 +4411,7 @@
         "title": "הוספת עמודים",
         "body": "הוספת עמודים משלו לאפליקציה, כל אחד עם כפתור בסרגל הניווט."
       },
+      "ui_office_editor": { "title": "Edit documents inside the app", "body": "Open selected documents in an approved editor inside {appName}. The editor receives their content and can save changes through the document gateway." },
       "http_proxy": {
         "title": "שימוש בחשבונות שאתם מחברים",
         "body": "שליחת בקשות דרך השרת של {appName} עם חשבון או מפתח שהוגדרו על ידיכם או על ידי מנהל המערכת. התוסף אף פעם לא רואה את הסיסמה, אבל הוא יכול לעשות כל מה שהחשבון הזה יכול לעשות בשרת שלו."

@@ -4394,6 +4394,10 @@
         "title": "Add pages",
         "body": "Add its own pages to the app, each with a button in the navigation bar."
       },
+      "ui_office_editor": {
+        "title": "Edit documents inside the app",
+        "body": "Open selected documents in an approved editor inside {appName}. The editor receives their content and can save changes through the document gateway."
+      },
       "http_proxy": {
         "title": "Use accounts you connect",
         "body": "Send requests through {appName}'s server with an account or key that you or your administrator set up. The plugin never sees the password, but it can do anything that account can do on its own server."

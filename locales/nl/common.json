@@ -4410,6 +4410,7 @@
         "title": "Pagina's toevoegen",
         "body": "Eigen pagina's toevoegen aan de app, elk met een knop in de navigatiebalk."
       },
+      "ui_office_editor": { "title": "Edit documents inside the app", "body": "Open selected documents in an approved editor inside {appName}. The editor receives their content and can save changes through the document gateway." },
       "http_proxy": {
         "title": "Accounts gebruiken die je koppelt",
         "body": "Verzoeken via de server van {appName} sturen met een account of sleutel die jij of je beheerder heeft ingesteld. De plug-in ziet het wachtwoord nooit, maar kan alles doen wat dat account op zijn eigen server mag."

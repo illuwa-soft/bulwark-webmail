@@ -4410,6 +4410,7 @@
         "title": "Aggiungere pagine",
         "body": "Aggiungere le proprie pagine all'app, ognuna con un pulsante nella barra di navigazione."
       },
+      "ui_office_editor": { "title": "Edit documents inside the app", "body": "Open selected documents in an approved editor inside {appName}. The editor receives their content and can save changes through the document gateway." },
       "http_proxy": {
         "title": "Usare gli account che colleghi",
         "body": "Inviare richieste tramite il server di {appName} con un account o una chiave configurati da te o dal tuo amministratore. Il plugin non vede mai la password, ma può fare tutto ciò che quell'account può fare sul proprio server."

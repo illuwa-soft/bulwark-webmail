@@ -4410,6 +4410,7 @@
         "title": "Sayfa ekleme",
         "body": "Uygulamaya kendi sayfalarını ekleme, her biri için gezinme çubuğunda bir düğmeyle."
       },
+      "ui_office_editor": { "title": "Edit documents inside the app", "body": "Open selected documents in an approved editor inside {appName}. The editor receives their content and can save changes through the document gateway." },
       "http_proxy": {
         "title": "Bağladığınız hesapları kullanma",
         "body": "Sizin veya yöneticinizin ayarladığı bir hesap ya da anahtarla {appName} sunucusu üzerinden istek gönderme. Eklenti parolayı hiçbir zaman görmez, ancak o hesabın kendi sunucusunda yapabildiği her şeyi yapabilir."

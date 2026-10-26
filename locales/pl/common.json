@@ -4410,6 +4410,7 @@
         "title": "Własne strony",
         "body": "Dodaje do aplikacji własne strony, każdą z przyciskiem na pasku nawigacyjnym."
       },
+      "ui_office_editor": { "title": "Edit documents inside the app", "body": "Open selected documents in an approved editor inside {appName}. The editor receives their content and can save changes through the document gateway." },
       "http_proxy": {
         "title": "Korzystanie z połączonych przez Ciebie kont",
         "body": "Wysyła żądania przez serwer {appName} z użyciem konta lub klucza skonfigurowanego przez Ciebie lub Twojego administratora. Wtyczka nigdy nie widzi hasła, ale może zrobić na tym serwerze wszystko, co może to konto."

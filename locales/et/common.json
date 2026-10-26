@@ -4394,6 +4394,7 @@
         "title": "Lisa lehti",
         "body": "Lisada rakendusse oma lehti, igaühel nupp navigeerimisribal."
       },
+      "ui_office_editor": { "title": "Edit documents inside the app", "body": "Open selected documents in an approved editor inside {appName}. The editor receives their content and can save changes through the document gateway." },
       "http_proxy": {
         "title": "Kasuta sinu ühendatud kontosid",
         "body": "Saata päringuid läbi rakenduse {appName} serveri kontoga või võtmega, mille sina või sinu administraator seadistas. Pistikprogramm ei näe kunagi parooli, kuid saab teha kõike, mida see konto oma serveris teha saab."

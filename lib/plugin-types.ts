@@ -263,6 +263,8 @@ export interface InstalledPlugin {
    * detect re-uploads of the same version so clients re-download the JS.
    */
   bundleHash?: string;
+  /** Exact HTTPS origins admitted for a host-owned Office editor. */
+  frameOrigins?: string[];
   /**
    * Validated allowlist of external HTTPS origins this plugin may target via
    * `api.http.fetch()`. Carried over from the manifest at install time.
@@ -1327,6 +1329,7 @@ export const ALL_PERMISSIONS = [
   'ui:calendar-action', 'ui:admin-page',
   // Surfaces from the slot catalogue (lib/plugin-slot-catalog.ts).
   'ui:message-list', 'ui:contacts', 'ui:tasks', 'ui:files', 'ui:commands', 'ui:app-page',
+  'ui:office-editor',
   // Requests that carry an account or API key, added by the server (lib/plugin-secrets).
   'http:proxy',
   'admin:config',

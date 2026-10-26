@@ -4410,6 +4410,7 @@
         "title": "Pridávať stránky",
         "body": "Pridáva do aplikácie vlastné stránky, každú s tlačidlom na navigačnej lište."
       },
+      "ui_office_editor": { "title": "Edit documents inside the app", "body": "Open selected documents in an approved editor inside {appName}. The editor receives their content and can save changes through the document gateway." },
       "http_proxy": {
         "title": "Používať účty, ktoré pripojíte",
         "body": "Odosiela požiadavky cez server aplikácie {appName} pomocou účtu alebo kľúča, ktorý ste nastavili vy alebo váš správca. Doplnok nikdy nevidí heslo, ale môže na príslušnom serveri robiť čokoľvek, čo môže tento účet."

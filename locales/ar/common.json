@@ -4410,6 +4410,7 @@
         "title": "إضافة صفحات",
         "body": "إضافة صفحاتها الخاصة إلى التطبيق، لكل منها زر في شريط التنقل."
       },
+      "ui_office_editor": { "title": "Edit documents inside the app", "body": "Open selected documents in an approved editor inside {appName}. The editor receives their content and can save changes through the document gateway." },
       "http_proxy": {
         "title": "استخدام الحسابات التي تربطها",
         "body": "إرسال طلبات عبر خادم {appName} باستخدام حساب أو مفتاح أعددته أنت أو مسؤول النظام. لا ترى الإضافة كلمة المرور أبدًا، لكنها تستطيع فعل أي شيء يستطيعه ذلك الحساب على خادمه."
