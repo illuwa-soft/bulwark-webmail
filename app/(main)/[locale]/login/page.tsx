@@ -1,6 +1,7 @@
 "use client";
 
 import { SavedAccounts } from '@/components/auth/saved-accounts';
+import { RememberAccountsControl } from '@/components/auth/remember-accounts-control';
 
 import { Suspense, useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "@/i18n/navigation";
@@ -1222,6 +1223,7 @@ function LoginPageContent() {
 
           {/* Form section */}
           <div className="px-8 pb-8">
+            {!isMobileHandoff && <RememberAccountsControl />}
             {!isAddAccountMode && !isMobileHandoff && <SavedAccounts />}
             {/* Session Expired Banner */}
             {sessionExpired && (

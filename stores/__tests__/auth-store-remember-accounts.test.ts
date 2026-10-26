@@ -32,6 +32,7 @@ vi.mock('@/lib/stalwart/principal', () => ({ fetchPrincipalDisplayName: async ()
 import * as navigation from '@/lib/browser-navigation';
 import { useAuthStore } from '../auth-store';
 import { useAccountStore } from '../account-store';
+import { useAccountListPreferencesStore } from '../account-list-preferences-store';
 
 const server = 'https://gmail.example.com';
 const username = 'user@gmail.com';
@@ -50,11 +51,33 @@ beforeEach(() => {
   sessionStorage.clear();
   useAccountStore.setState({ accounts: [], activeAccountId: null, defaultAccountId: null });
   useAuthStore.setState({ isAuthenticated: false, client: null, activeAccountId: null, isDemoMode: false });
+  useAccountListPreferencesStore.setState({ rememberAccountList: true });
 });
 
 afterEach(async () => {
   await useAuthStore.getState().logoutAll();
   vi.restoreAllMocks();
+});
+
+it('preserves original sign-out cleanup when remembering accounts is not enabled', async () => {
+  useAccountListPreferencesStore.setState({ rememberAccountList: false });
+  await useAuthStore.getState().login(server, username, 'test-password', undefined, true);
+  const id = useAuthStore.getState().activeAccountId!;
+  await useAuthStore.getState().logout();
+  expect(useAccountStore.getState().getAccountById(id)).toBeUndefined();
+  expect(localStorage.getItem('account-registry')).toBeNull();
+});
+
+it('removes a rejected account when remembering accounts is disabled', async () => {
+  useAccountListPreferencesStore.setState({ rememberAccountList: false });
+  const id = useAccountStore.getState().addAccount({
+    serverUrl: server, username, label: 'Gmail', email: username, displayName: 'Gmail',
+    authMode: 'basic', rememberMe: true, lastLoginAt: Date.now(),
+    isConnected: false, hasError: false, isDefault: true,
+  });
+  await useAuthStore.getState().checkAuth();
+  expect(useAccountStore.getState().getAccountById(id)).toBeUndefined();
+  expect(useAuthStore.getState().isAuthenticated).toBe(false);
 });
 
 it('keeps a signed-out account selectable for reauthentication on its own server', async () => {

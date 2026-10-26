@@ -63,17 +63,23 @@ All four share [single sign-on](https://bulwarkmail.org/docs/getting-started/con
 
 There are two [editions](https://bulwarkmail.org/docs/getting-started/editions). The full edition runs as a Node.js server and adds the admin dashboard, OAuth, plugins and settings sync. [Bulwark Lite](https://bulwarkmail.org/docs/getting-started/lite) is the same client as static files, served by any web host or by Stalwart itself.
 
-### Saved accounts in the Illuwa fork
+### Remember accounts on this device
 
-Account-list metadata is retained on this device for **100 calendar years** from
-the last successful sign-in. Existing entries receive the same retention period.
-Signing out or losing an authentication session leaves the account selectable for
-a fresh sign-in; **Remove account** explicitly forgets it. The login page also
-lists signed-out accounts, including the server each account belongs to.
+The optional **Remember account list on this device** control keeps account names
+and server addresses selectable after sign-out or session expiry. Selecting a
+saved account asks for a fresh sign-in when necessary; **Remove account** forgets
+it. Turning the option off also forgets signed-out entries on this device.
 
-This retention covers account names and server addresses, not authentication
-lifetimes or passwords. Clearing this site's browser data removes the local list.
-The existing encrypted account archive can be used for recovery on another device.
+The feature is **off by default**, preserving the existing sign-out and failed
+session cleanup. Deployers may set `REMEMBER_ACCOUNT_LIST=true` to make it the
+initial choice; the user's local choice takes precedence. Lite deployments may
+set `rememberAccountList` in `config.json`. The preference stays on this device
+and is not included in cross-device settings sync.
+
+Saved account names have no application-defined expiry and contain no passwords
+or authentication tokens. Authentication lifetimes remain independent. Clearing
+this site's browser data removes the local list; the existing encrypted account
+archive can be used for recovery on another device.
 
 ## Quick start
 

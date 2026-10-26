@@ -5,16 +5,18 @@ import { X } from '@/components/icons';
 import { toUnicodeEmail } from '@/lib/idn';
 import { useAccountStore } from '@/stores/account-store';
 import { useAuthStore } from '@/stores/auth-store';
+import { useAccountListPreferencesStore } from '@/stores/account-list-preferences-store';
 
 /** Offer retained accounts without reviving their sessions. / 저장된 계정을 표시하고 선택 시 재인증을 요청합니다. */
 export function SavedAccounts() {
   const t = useTranslations('sidebar');
   const login = useTranslations('login');
   const accounts = useAccountStore((state) => state.accounts);
+  const remember = useAccountListPreferencesStore((state) => state.rememberAccountList === true);
   const switchAccount = useAuthStore((state) => state.switchAccount);
   const removeAccount = useAuthStore((state) => state.removeAccount);
   const saved = accounts.filter((account) => account.awaitingSignIn);
-  if (saved.length === 0) return null;
+  if (!remember || saved.length === 0) return null;
 
   return (
     <section className="mb-5 space-y-2" aria-label={t('switch_account')}>

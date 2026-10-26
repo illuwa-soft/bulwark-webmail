@@ -10,6 +10,7 @@ import { subscriptionOwner, useCalendarStore } from './calendar-store';
 import { useFilterStore } from './filter-store';
 import { useSettingsStore } from './settings-store';
 import { useAccountStore, type AccountEntry } from './account-store';
+import { useAccountListPreferencesStore } from './account-list-preferences-store';
 import { fetchPrincipalDisplayName } from '@/lib/stalwart/principal';
 import { fetchConfig } from '@/hooks/use-config';
 import { debug } from '@/lib/debug';
@@ -1250,7 +1251,8 @@ function requireAccountSignIn(accountId: string): void {
   }
   clients.delete(accountId);
   evictAccount(accountId);
-  accountStore.requireSignIn(accountId);
+  if (useAccountListPreferencesStore.getState().rememberAccountList) accountStore.requireSignIn(accountId);
+  if (!useAccountListPreferencesStore.getState().rememberAccountList) accountStore.removeAccount(accountId);
   clearPluginStorageForAccount(accountId);
 }
 
@@ -1298,7 +1300,12 @@ function performFullLogout(set: (state: Partial<AuthState>) => void): void {
   // Remove persisted state AFTER the final set() so the persist middleware
   // doesn't re-write stale values.
   try { localStorage.removeItem('auth-storage'); } catch { /* noop */ }
-  useAccountStore.setState({ activeAccountId: null });
+  if (useAccountListPreferencesStore.getState().rememberAccountList) {
+    useAccountStore.setState({ activeAccountId: null });
+  }
+  if (!useAccountListPreferencesStore.getState().rememberAccountList) {
+    try { localStorage.removeItem('account-registry'); } catch { /* noop */ }
+  }
   purgeSignedOutData();
   // Other tabs still hold the accounts' mail in memory.
   broadcastSignOut();
@@ -2176,6 +2183,7 @@ export const useAuthStore = create<AuthState>()(
         const state = get();
         const wasDemoMode = state.isDemoMode;
         const wasOAuth = state.authMode === 'oauth';
+        const rememberAccountList = useAccountListPreferencesStore.getState().rememberAccountList === true;
         const accountId = state.activeAccountId;
         const accountStore = useAccountStore.getState();
         const account = accountId ? accountStore.getAccountById(accountId) : null;
@@ -2202,8 +2210,8 @@ export const useAuthStore = create<AuthState>()(
         if (accountId) {
           clients.delete(accountId);
           evictAccount(accountId);
-          if (wasDemoMode || options?.forgetAccount) accountStore.removeAccount(accountId);
-          if (!wasDemoMode && !options?.forgetAccount) accountStore.requireSignIn(accountId);
+          if (!rememberAccountList || wasDemoMode || options?.forgetAccount) accountStore.removeAccount(accountId);
+          if (rememberAccountList && !wasDemoMode && !options?.forgetAccount) accountStore.requireSignIn(accountId);
           if (!wasDemoMode) clearPluginStorageForAccount(accountId);
         }
 
@@ -2219,7 +2227,10 @@ export const useAuthStore = create<AuthState>()(
         // Prefer an account that is signed in here: one restored from the
         // account list backup (or otherwise not connected) has no client, and
         // picking it signs out every account left.
-        const remainingAccounts = useAccountStore.getState().accounts.filter((entry) => entry.id !== accountId && !entry.awaitingSignIn);
+        let remainingAccounts = useAccountStore.getState().accounts;
+        if (rememberAccountList) {
+          remainingAccounts = remainingAccounts.filter((entry) => entry.id !== accountId && !entry.awaitingSignIn);
+        }
         const nextAccount = wasDemoMode
           ? undefined
           : remainingAccounts.find((a) => clients.has(a.id)) ?? remainingAccounts[0];
@@ -2283,7 +2294,8 @@ export const useAuthStore = create<AuthState>()(
             clients.get(remaining.id)?.disconnect();
             clients.delete(remaining.id);
             evictAccount(remaining.id);
-            accountStore.requireSignIn(remaining.id);
+            if (rememberAccountList) accountStore.requireSignIn(remaining.id);
+            if (!rememberAccountList) accountStore.removeAccount(remaining.id);
           }
         }
 
@@ -2361,7 +2373,7 @@ export const useAuthStore = create<AuthState>()(
 
         // End every session while retaining the saved account list.
         for (const account of allAccounts) {
-          if (account.serverUrl === DEMO_SERVER_URL) {
+          if (!useAccountListPreferencesStore.getState().rememberAccountList || account.serverUrl === DEMO_SERVER_URL) {
             accountStore.removeAccount(account.id);
             continue;
           }
@@ -2606,6 +2618,9 @@ export const useAuthStore = create<AuthState>()(
       },
 
       checkAuth: async () => {
+        if (useAccountListPreferencesStore.getState().rememberAccountList === null) {
+          try { await fetchConfig(); } catch { /* default to the existing cleanup policy when config is unavailable */ }
+        }
         const accountStore = useAccountStore.getState();
         let accounts = accountStore.accounts;
 
@@ -2886,7 +2901,7 @@ export const useAuthStore = create<AuthState>()(
             return;
           }
 
-          if (forgottenAccounts === accounts.length || accounts.every((account) => account.awaitingSignIn)) saveRedirectAfterLogin();
+          if (forgottenAccounts === accounts.length || (useAccountListPreferencesStore.getState().rememberAccountList && accounts.every((account) => account.awaitingSignIn))) saveRedirectAfterLogin();
           else markSessionExpired();
           set({
             isAuthenticated: false,

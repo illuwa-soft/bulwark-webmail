@@ -365,8 +365,7 @@ describe('signing out of several accounts', () => {
     expect(calls).toHaveLength(2);
     expect(replaceSpy).toHaveBeenCalledTimes(1);
     expect(replaceSpy).toHaveBeenCalledWith(IDP_LOGOUT);
-    expect(useAccountStore.getState().accounts.map(entry => entry.id)).toEqual(['alice', 'bob', 'carol']);
-    expect(useAccountStore.getState().accounts.every(entry => entry.awaitingSignIn && !entry.isConnected)).toBe(true);
+    expect(useAccountStore.getState().accounts).toEqual([]);
     expect(useAuthStore.getState().isAuthenticated).toBe(false);
   });
 

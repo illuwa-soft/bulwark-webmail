@@ -112,8 +112,7 @@ it('signs out to an account that is signed in, not to one awaiting sign-in', asy
   await useAuthStore.getState().logout();
   expect(useAuthStore.getState().activeAccountId).toBe('carol@x.test@mail.x.test');
   expect(useAuthStore.getState().isAuthenticated).toBe(true);
-  expect(useAccountStore.getState().accounts.map(a => a.id)).toEqual([signedIn.id, 'alice@x.test@mail.x.test', 'carol@x.test@mail.x.test']);
-  expect(useAccountStore.getState().getAccountById(signedIn.id)).toMatchObject({ awaitingSignIn: true, isConnected: false });
+  expect(useAccountStore.getState().accounts.map(a => a.id)).toEqual(['alice@x.test@mail.x.test', 'carol@x.test@mail.x.test']);
 });
 
 it('treats a browser left with only accounts awaiting sign-in as signed out, not as a connection failure', async () => {
@@ -122,8 +121,7 @@ it('treats a browser left with only accounts awaiting sign-in as signed out, not
   await useAuthStore.getState().checkAuth();
   expect(useAuthStore.getState().isAuthenticated).toBe(false);
   expect(useAuthStore.getState().error).not.toBe('connection_failed');
-  expect(useAccountStore.getState().accounts.map(a => a.id)).toEqual([signedIn.id, 'alice@x.test@mail.x.test']);
-  expect(useAccountStore.getState().accounts.every(a => a.awaitingSignIn)).toBe(true);
+  expect(useAccountStore.getState().accounts.map(a => a.id)).toEqual(['alice@x.test@mail.x.test']);
 });
 
 it('signs in to a restored account with its saved password without leaving the active one', async () => {
