@@ -28,8 +28,9 @@ const registry = await import('@/lib/plugin-sandbox/registry');
 const pages = await import('@/lib/plugin-sandbox/pages');
 const { useAuthStore } = await import('@/stores/auth-store');
 const { usePluginStore } = await import('@/stores/plugin-store');
+const { isFillableSlot } = await import('@/lib/plugin-sandbox/slot-layout');
 
-function activate(id: string, slots: string[]) {
+function activate(id: string, slots: string[], fill = false) {
   const plugin: InstalledPlugin = {
     id, name: 'Kanban', version: '1.0.0', author: '', description: '', type: 'ui-extension',
     permissions: ['ui:app-page'], grantedPermissions: ['ui:app-page'], entrypoint: 'index.js',
@@ -38,7 +39,7 @@ function activate(id: string, slots: string[]) {
   registry.register({
     plugin, code: '', tier: 'untrusted',
     background: { evaluateShouldShow: vi.fn(async () => true) } as never,
-    slotOffers: slots.map((name) => ({ name: name as never, order: 100, hasShouldShow: false })),
+    slotOffers: slots.map((name) => ({ name: name as never, order: 100, hasShouldShow: false, fill })),
     hookDisposables: [],
   });
 }
@@ -67,6 +68,21 @@ describe('plugin pages', () => {
     expect(opts.slot).toBe('app-page');
     expect(opts.plugin.id).toBe('kanban');
     expect(opts.extraProps).toEqual({ pageId: 'board', path: 'cards/42' });
+    expect(createSlotInstance.mock.calls[0][0]).toMatchObject({ fill: false });
+  });
+
+  it('gives an opted-in page the available height through the host and sandbox fill contract', async () => {
+    activate('chat', ['app-page'], true);
+    act(() => pages.setPluginPages('chat', 'Chat', [{ id: 'agent', title: 'Agent' }]));
+    const { container } = render(<PluginPageApp linkSegments={['chat', 'agent']} />);
+
+    await waitFor(() => expect(createSlotInstance).toHaveBeenCalled());
+    expect(createSlotInstance.mock.calls[0][0]).toMatchObject({ slot: 'app-page', fill: true });
+    expect(isFillableSlot('app-page')).toBe(true);
+    expect(isFillableSlot('email-toolbar')).toBe(false);
+    const page = container.querySelector('[data-plugin-page="chat/agent"]');
+    expect(page).toHaveClass('flex', 'flex-col', 'min-h-0', 'overflow-hidden');
+    expect(page?.querySelector('[data-plugin-iframe-fill]')).toHaveStyle({ flex: '1 1 0%', minHeight: 0 });
   });
 
   it('passes an empty path for the page itself', async () => {

@@ -59,6 +59,11 @@ export function PluginPageApp({ linkSegments = [] }: PluginPageAppProps) {
     () => offersForSlot("app-page").some((o) => o.pluginId === pluginId),
     () => false,
   );
+  const fillsPage = useSyncExternalStore(
+    subscribeSlots,
+    () => offersForSlot("app-page").some((o) => o.pluginId === pluginId && o.fill),
+    () => false,
+  );
   useDocumentTitle(page?.title ?? null);
 
   useEffect(() => {
@@ -91,8 +96,8 @@ export function PluginPageApp({ linkSegments = [] }: PluginPageAppProps) {
   let content: React.ReactNode;
   if (available) {
     content = (
-      <div className="flex-1 min-h-0 overflow-y-auto" data-plugin-page={`${pluginId}/${pageId}`}>
-        <PluginIframeSlot key={`${pluginId}/${pageId}`} pluginId={pluginId} slot="app-page" extraProps={extraProps} />
+      <div className={cn("flex-1 min-h-0", fillsPage ? "flex flex-col overflow-hidden" : "overflow-y-auto")} data-plugin-page={`${pluginId}/${pageId}`}>
+        <PluginIframeSlot key={`${pluginId}/${pageId}`} pluginId={pluginId} slot="app-page" extraProps={extraProps} fill={fillsPage} />
       </div>
     );
   } else if (!pluginsReady) {
