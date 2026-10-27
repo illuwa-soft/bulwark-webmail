@@ -4473,11 +4473,13 @@
         "title": "新增頁面",
         "body": "在應用程式中新增它自己的頁面，每個頁面在導覽列都有一個按鈕。"
       },
+      "ui_embedded_view": { "title": "Open external views", "body": "Show approved external pages inside {appName} and exchange messages with them. The plugin can ask you to finish its work before leaving." },
       "http_proxy": {
         "title": "使用您連線的帳號",
         "body": "使用您或管理員設定的帳號或金鑰，透過 {appName} 的伺服器傳送要求。外掛程式永遠看不到密碼，但可以在該帳號所屬的伺服器上執行該帳號能做的任何動作。"
       }
     },
+    "embedded_view": { "close_without_waiting": "Close without waiting", "force_close": "Close this view without waiting for the plugin? This may interrupt its work.", "close_failed": "The plugin has not finished closing. You can continue or close the view without waiting." },
     "dialog": {
       "from_plugin": "來自外掛程式 {name}",
       "ok": "確定",

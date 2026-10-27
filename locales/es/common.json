@@ -4473,11 +4473,13 @@
         "title": "Añadir páginas",
         "body": "Añadir sus propias páginas a la aplicación, cada una con un botón en la barra de navegación."
       },
+      "ui_embedded_view": { "title": "Open external views", "body": "Show approved external pages inside {appName} and exchange messages with them. The plugin can ask you to finish its work before leaving." },
       "http_proxy": {
         "title": "Usar las cuentas que conectes",
         "body": "Enviar solicitudes a través del servidor de {appName} con una cuenta o clave configurada por ti o por tu administrador. El complemento nunca ve la contraseña, pero puede hacer todo lo que esa cuenta puede hacer en su propio servidor."
       }
     },
+    "embedded_view": { "close_without_waiting": "Close without waiting", "force_close": "Close this view without waiting for the plugin? This may interrupt its work.", "close_failed": "The plugin has not finished closing. You can continue or close the view without waiting." },
     "dialog": {
       "from_plugin": "Del complemento {name}",
       "ok": "Aceptar",

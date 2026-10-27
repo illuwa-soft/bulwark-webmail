@@ -4473,11 +4473,13 @@
         "title": "افزودن صفحه",
         "body": "افزودن صفحه‌های خودش به برنامه، هر کدام با یک دکمه در نوار ناوبری."
       },
+      "ui_embedded_view": { "title": "Open external views", "body": "Show approved external pages inside {appName} and exchange messages with them. The plugin can ask you to finish its work before leaving." },
       "http_proxy": {
         "title": "استفاده از حساب‌هایی که متصل می‌کنید",
         "body": "ارسال درخواست از طریق سرور {appName} با حساب یا کلیدی که شما یا مدیرتان راه‌اندازی کرده‌اید. افزونه هرگز گذرواژه را نمی‌بیند، اما می‌تواند هر کاری را که آن حساب روی سرور خودش می‌تواند انجام دهد، انجام دهد."
       }
     },
+    "embedded_view": { "close_without_waiting": "Close without waiting", "force_close": "Close this view without waiting for the plugin? This may interrupt its work.", "close_failed": "The plugin has not finished closing. You can continue or close the view without waiting." },
     "dialog": {
       "from_plugin": "از افزونه {name}",
       "ok": "تأیید",

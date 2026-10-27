@@ -61,6 +61,8 @@ export async function GET(request: NextRequest) {
       dev: p.dev,
       // Surface so clients can enforce api.http.fetch origin allowlists.
       httpOrigins: p.httpOrigins,
+      frameOrigins: p.frameOrigins,
+      framePaths: p.framePaths,
       // Surface so clients can enforce api.http.post path allowlists.
       apiPostPaths: p.apiPostPaths,
       // Which credentials the plugin may use through the proxy; no secrets.

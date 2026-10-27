@@ -1,0 +1,72 @@
+name: "CI: Embedded views"
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: embedded-views-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  full:
+    name: Full browser boundary
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium webkit
+      - run: npm run build
+        env:
+          DEV_MOCK_JMAP: "true"
+      - run: npm run test:embedded-views
+        env:
+          EMBEDDED_VIEWS_WEBKIT: "1"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: embedded-views-full
+          path: local-data/embedded-views/full
+          retention-days: 7
+
+  lite:
+    name: Lite ${{ matrix.target }} policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [static, stalwart]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium webkit
+      # Actions owns this disposable checkout; prepare may remove server trees.
+      - run: npm run build:lite -- --target=${{ matrix.target }}
+        env:
+          LITE_LOCALES: en,ar
+          GIT_COMMIT: ${{ github.sha }}
+      - run: npm run test:embedded-views
+        env:
+          EMBEDDED_VIEWS_MODE: lite
+          EMBEDDED_VIEWS_WEBKIT: "1"
+          EMBEDDED_VIEWS_LITE_TARGET: ${{ matrix.target }}
+          EMBEDDED_VIEWS_LITE_DIR: ${{ github.workspace }}/${{ matrix.target == 'stalwart' && 'bulwark-lite-stalwart.zip' || 'out' }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: embedded-views-lite-${{ matrix.target }}
+          path: local-data/embedded-views/lite-${{ matrix.target }}
+          retention-days: 7

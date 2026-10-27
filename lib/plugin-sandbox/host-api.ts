@@ -5,6 +5,8 @@
 import type { AppInfoView, InstalledPlugin, Permission } from '../plugin-types';
 import { fetchConfig } from '@/hooks/use-config';
 import { IS_LITE } from '../lite';
+import { readEmbeddedCommand, type EmbeddedViewOwner } from '../plugin-embedded/contracts';
+import { requestEmbeddedView } from '../plugin-embedded/requests';
 import { doAppGetSettings, doAppSearchSettings } from './host-api-app';
 import { mayOfferSlot, pluginHasPermission } from './permissions';
 import { proxyAccounts, proxyCancel, proxyConnect, proxyDisconnect, proxyFetch, type StreamSink } from './proxy-client';
@@ -222,6 +224,7 @@ export const PERM_PER_METHOD: Readonly<Record<string, Permission | null>> = {
   'ui.refreshRowBadges': null,
   'ui.setDayLabels': 'ui:calendar-action',
   'ui.setPages': 'ui:app-page',
+  'ui.embeddedView': 'ui:embedded-view',
   'ui.setSectionTitle': 'ui:sidebar-widget',
   // Open, close or toggle the panel the plugin's slot sits in; the panel's
   // own permission is checked per call (see the slot catalogue).
@@ -1854,7 +1857,7 @@ export async function dispatchApiCall(
   plugin: InstalledPlugin,
   method: string,
   args: unknown[],
-  opts?: { privileged?: boolean; sink?: StreamSink },
+  opts?: { privileged?: boolean; sink?: StreamSink; embeddedOwner?: EmbeddedViewOwner },
 ): Promise<unknown> {
   // Tier gate: privileged-only methods are refused for untrusted (null-origin)
   // instances even if the permission is somehow present. Defence-in-depth on
@@ -1874,6 +1877,18 @@ export async function dispatchApiCall(
   }
 
   switch (method) {
+    case 'ui.embeddedView': {
+      // Lite deliberately has no plugin sandbox host (applyLitePolicy).
+      if (IS_LITE) throw new Error('Plugin embedded views are unavailable in Lite');
+      if (!pluginHasPermission(plugin, 'ui:app-page')) throw new Error('Embedded views require the app-page permission');
+      const owner = opts?.embeddedOwner;
+      if (!owner || owner.slot !== 'app-page' || owner.signal.aborted) throw new Error('Embedded views require a live app-page instance');
+      return requestEmbeddedView(plugin.id, owner, readEmbeddedCommand(args[0]), {
+        hostOrigin: window.location.origin,
+        frameOrigins: plugin.frameOrigins ?? [],
+        framePaths: plugin.framePaths ?? [],
+      });
+    }
     case 'proxy.fetch': return proxyFetch(plugin, args, opts?.sink ?? null);
     case 'proxy.cancel': proxyCancel(plugin, args[0]); return undefined;
     case 'proxy.connect': return proxyConnect(plugin, args);

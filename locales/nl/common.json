@@ -4473,11 +4473,13 @@
         "title": "Pagina's toevoegen",
         "body": "Eigen pagina's toevoegen aan de app, elk met een knop in de navigatiebalk."
       },
+      "ui_embedded_view": { "title": "Open external views", "body": "Show approved external pages inside {appName} and exchange messages with them. The plugin can ask you to finish its work before leaving." },
       "http_proxy": {
         "title": "Accounts gebruiken die je koppelt",
         "body": "Verzoeken via de server van {appName} sturen met een account of sleutel die jij of je beheerder heeft ingesteld. De plug-in ziet het wachtwoord nooit, maar kan alles doen wat dat account op zijn eigen server mag."
       }
     },
+    "embedded_view": { "close_without_waiting": "Close without waiting", "force_close": "Close this view without waiting for the plugin? This may interrupt its work.", "close_failed": "The plugin has not finished closing. You can continue or close the view without waiting." },
     "dialog": {
       "from_plugin": "Van de plug-in {name}",
       "ok": "OK",

@@ -4473,11 +4473,13 @@
         "title": "إضافة صفحات",
         "body": "إضافة صفحاتها الخاصة إلى التطبيق، لكل منها زر في شريط التنقل."
       },
+      "ui_embedded_view": { "title": "Open external views", "body": "Show approved external pages inside {appName} and exchange messages with them. The plugin can ask you to finish its work before leaving." },
       "http_proxy": {
         "title": "استخدام الحسابات التي تربطها",
         "body": "إرسال طلبات عبر خادم {appName} باستخدام حساب أو مفتاح أعددته أنت أو مسؤول النظام. لا ترى الإضافة كلمة المرور أبدًا، لكنها تستطيع فعل أي شيء يستطيعه ذلك الحساب على خادمه."
       }
     },
+    "embedded_view": { "close_without_waiting": "Close without waiting", "force_close": "Close this view without waiting for the plugin? This may interrupt its work.", "close_failed": "The plugin has not finished closing. You can continue or close the view without waiting." },
     "dialog": {
       "from_plugin": "من الإضافة {name}",
       "ok": "حسنًا",

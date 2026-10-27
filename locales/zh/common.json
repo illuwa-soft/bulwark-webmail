@@ -4473,11 +4473,13 @@
         "title": "添加页面",
         "body": "向应用添加它自己的页面，每个页面在导航栏中都有一个按钮。"
       },
+      "ui_embedded_view": { "title": "Open external views", "body": "Show approved external pages inside {appName} and exchange messages with them. The plugin can ask you to finish its work before leaving." },
       "http_proxy": {
         "title": "使用您连接的账户",
         "body": "使用您或管理员设置的账户或密钥，通过 {appName} 的服务器发送请求。插件永远看不到密码，但可以在该账户所属的服务器上执行该账户能做的任何操作。"
       }
     },
+    "embedded_view": { "close_without_waiting": "Close without waiting", "force_close": "Close this view without waiting for the plugin? This may interrupt its work.", "close_failed": "The plugin has not finished closing. You can continue or close the view without waiting." },
     "dialog": {
       "from_plugin": "来自插件 {name}",
       "ok": "确定",

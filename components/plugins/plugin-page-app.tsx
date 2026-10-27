@@ -13,6 +13,7 @@ import { InlineAppView } from "@/components/layout/inline-app-view";
 import { MvTopBar } from "@/components/layout/mv-top-bar";
 import { AppTopBannerSlot } from "@/components/plugins/app-top-banner-slot";
 import { PluginIframeSlot } from "@/components/plugins/plugin-iframe-slot";
+import { EmbeddedWorkspace } from "@/components/plugins/embedded-workspace";
 import { useSidebarApps } from "@/hooks/use-sidebar-apps";
 import { useIsEmbedded } from "@/hooks/use-is-embedded";
 import { useIsMobile } from "@/hooks/use-media-query";
@@ -21,6 +22,7 @@ import { useDocumentTitle } from "@/hooks/use-document-title";
 import { findPage, subscribePages } from "@/lib/plugin-sandbox/pages";
 import { offersForSlot, subscribe as subscribeSlots } from "@/lib/plugin-sandbox/registry";
 import { cn } from "@/lib/utils";
+import { IS_LITE } from "@/lib/lite";
 
 export interface PluginPageAppProps {
   /** Path segments after `/apps`: `[pluginId, pageId, ...subPath]`. */
@@ -146,7 +148,7 @@ export function PluginPageApp({ linkSegments = [] }: PluginPageAppProps) {
         <div className="flex flex-col flex-1 min-w-0">
           {inlineApp && <InlineAppView apps={loadedApps} activeAppId={inlineApp.id} onClose={closeInlineApp} />}
           <div className={cn("flex flex-col flex-1 min-h-0", inlineApp && "hidden")}>
-            {content}
+            {IS_LITE ? content : <EmbeddedWorkspace pluginId={pluginId}>{content}</EmbeddedWorkspace>}
           </div>
           {isMobile && !isEmbedded && (
             <NavigationRail

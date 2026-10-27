@@ -4473,11 +4473,13 @@
         "title": "Sayfa ekleme",
         "body": "Uygulamaya kendi sayfalarını ekleme, her biri için gezinme çubuğunda bir düğmeyle."
       },
+      "ui_embedded_view": { "title": "Open external views", "body": "Show approved external pages inside {appName} and exchange messages with them. The plugin can ask you to finish its work before leaving." },
       "http_proxy": {
         "title": "Bağladığınız hesapları kullanma",
         "body": "Sizin veya yöneticinizin ayarladığı bir hesap ya da anahtarla {appName} sunucusu üzerinden istek gönderme. Eklenti parolayı hiçbir zaman görmez, ancak o hesabın kendi sunucusunda yapabildiği her şeyi yapabilir."
       }
     },
+    "embedded_view": { "close_without_waiting": "Close without waiting", "force_close": "Close this view without waiting for the plugin? This may interrupt its work.", "close_failed": "The plugin has not finished closing. You can continue or close the view without waiting." },
     "dialog": {
       "from_plugin": "{name} eklentisinden",
       "ok": "Tamam",

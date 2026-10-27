@@ -4457,6 +4457,7 @@
         "title": "Lisa lehti",
         "body": "Lisada rakendusse oma lehti, igaühel nupp navigeerimisribal."
       },
+      "ui_embedded_view": { "title": "Open external views", "body": "Show approved external pages inside {appName} and exchange messages with them. The plugin can ask you to finish its work before leaving." },
       "http_proxy": {
         "title": "Kasuta sinu ühendatud kontosid",
         "body": "Saata päringuid läbi rakenduse {appName} serveri kontoga või võtmega, mille sina või sinu administraator seadistas. Pistikprogramm ei näe kunagi parooli, kuid saab teha kõike, mida see konto oma serveris teha saab."
@@ -4478,6 +4479,7 @@
         "body": "Näidata märguandeid sinu seadmes või rakenduses, kui pole neid lubanud. Iga märguanne nimetab pistikprogrammi."
       }
     },
+    "embedded_view": { "close_without_waiting": "Close without waiting", "force_close": "Close this view without waiting for the plugin? This may interrupt its work.", "close_failed": "The plugin has not finished closing. You can continue or close the view without waiting." },
     "dialog": {
       "from_plugin": "Pistikprogrammilt {name}",
       "ok": "OK",

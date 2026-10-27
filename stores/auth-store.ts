@@ -45,6 +45,7 @@ import {
   saveLiteRefreshToken,
 } from '@/lib/auth/lite-tokens';
 import { clearLiteOAuthFlow, readLiteOAuthFlow } from '@/lib/auth/lite-oauth';
+import { disposeEmbeddedViews, embeddedViewsActive, leaveEmbeddedViews } from '@/lib/plugin-embedded/requests';
 
 /** Logins restored at once after the one on screen: enough to overlap round trips, few enough not to crowd the server. */
 const RESTORE_CONCURRENCY = 4;
@@ -2143,6 +2144,8 @@ export const useAuthStore = create<AuthState>()(
       },
 
        logout: async (options) => {
+        if (options?.endProviderSession === false) disposeEmbeddedViews();
+        else if (embeddedViewsActive() && !(await leaveEmbeddedViews('logout'))) return;
         const state = get();
         const wasDemoMode = state.isDemoMode;
         const wasOAuth = state.authMode === 'oauth';
@@ -2315,6 +2318,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logoutAll: async () => {
+        if (embeddedViewsActive() && !(await leaveEmbeddedViews('logout'))) return;
         await beforeLogoutHooks('all');
 
         const accountStore = useAccountStore.getState();
@@ -2365,6 +2369,8 @@ export const useAuthStore = create<AuthState>()(
         const accountStore = useAccountStore.getState();
         const targetAccount = accountStore.getAccountById(accountId);
         if (!targetAccount) return;
+        if (embeddedViewsActive() && !(await leaveEmbeddedViews('account-switch'))) return;
+        if (superseded()) return;
         // Restored from the account list backup and never signed in here:
         // there is no session to resume, so ask for the password instead.
         if (targetAccount.awaitingSignIn && !clients.has(accountId)) {

@@ -1,0 +1,13 @@
+{
+  "id": "example-view",
+  "name": "Example views",
+  "version": "1.0.0",
+  "author": "Test fixture",
+  "description": "An application-free example of frame messages and page lifecycle.",
+  "type": "ui-extension",
+  "tier": "untrusted",
+  "entrypoint": "index.js",
+  "permissions": ["ui:app-page", "ui:embedded-view"],
+  "frameOrigins": ["https://canvas.test", "https://form.test"],
+  "framePaths": ["/workspace/"]
+}

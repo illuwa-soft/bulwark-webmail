@@ -20,6 +20,7 @@ import { tablesFor } from './plugin-i18n';
 import { getEffectiveTimeZone } from '../timezone';
 import { getEffectiveLocale } from '@/i18n/detect-locale';
 import { useSettingsStore, type DateLocale } from '@/stores/settings-store';
+import type { EmbeddedViewOwner } from '../plugin-embedded/contracts';
 import type {
   SandboxToHost, HostToSandbox, InitMsg, InitPayload, StreamChunkMsg, StreamEndMsg, StreamProgressMsg,
   FloatingDropdownOpenMsg, FloatingDropdownUpdateMsg, FloatingDropdownCloseMsg,
@@ -290,6 +291,8 @@ export class SandboxInstance {
   private rejectInit!: (err: Error) => void;
   private listener: (ev: MessageEvent) => void;
   private destroyed = false;
+  private readonly embeddedAbort = new AbortController();
+  private readonly embeddedOwner: EmbeddedViewOwner;
   /** The frame has answered init-done: its hooks and slots are in place. */
   private initialized = false;
 
@@ -311,6 +314,7 @@ export class SandboxInstance {
   ) {
     this.pluginId = plugin.id;
     this.mode = initPayload.mode;
+    this.embeddedOwner = { slot: initPayload.mode === 'slot' ? initPayload.slot : null, signal: this.embeddedAbort.signal, container: hostContainer };
     this.privileged = initPayload.tier === 'privileged';
     this.inline = initPayload.mode === 'slot' && isInlineSlot(initPayload.slot);
 
@@ -373,7 +377,7 @@ export class SandboxInstance {
       this.iframe.style.height = '1px';
       this.iframe.style.opacity = '0';
       this.iframe.style.pointerEvents = 'none';
-      this.iframe.style.left = '-9999px';
+      this.iframe.style.insetInlineStart = '-9999px';
       this.iframe.setAttribute('aria-hidden', 'true');
     } else if (this.inline) {
       // Starts at the widest it may get; the first resize shrinks it.
@@ -478,7 +482,7 @@ export class SandboxInstance {
         const { id, method, args } = msg;
         void (async () => {
           try {
-            const result = await dispatchApiCall(this.plugin, method, args ?? [], { privileged: this.privileged, sink: this });
+            const result = await dispatchApiCall(this.plugin, method, args ?? [], { privileged: this.privileged, sink: this, embeddedOwner: this.embeddedOwner });
             this.send({ type: 'api-response', id, ok: true, result });
           } catch (err) {
             this.send({ type: 'api-response', id, ok: false, error: (err as Error).message ?? String(err) });
@@ -675,6 +679,7 @@ export class SandboxInstance {
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.embeddedAbort.abort();
     // Whoever waits for init (the loader, calls held back below) stops waiting.
     this.rejectInit(new Error('sandbox destroyed'));
     liveInstances.delete(this);

@@ -4473,11 +4473,13 @@
         "title": "Добавлять страницы",
         "body": "Добавлять в приложение свои страницы, каждую с кнопкой на панели навигации."
       },
+      "ui_embedded_view": { "title": "Open external views", "body": "Show approved external pages inside {appName} and exchange messages with them. The plugin can ask you to finish its work before leaving." },
       "http_proxy": {
         "title": "Использовать подключённые вами аккаунты",
         "body": "Отправлять запросы через сервер {appName} с аккаунтом или ключом, который настроили вы или ваш администратор. Плагин никогда не видит пароль, но может делать на этом сервере всё, что может этот аккаунт."
       }
     },
+    "embedded_view": { "close_without_waiting": "Close without waiting", "force_close": "Close this view without waiting for the plugin? This may interrupt its work.", "close_failed": "The plugin has not finished closing. You can continue or close the view without waiting." },
     "dialog": {
       "from_plugin": "От плагина {name}",
       "ok": "ОК",

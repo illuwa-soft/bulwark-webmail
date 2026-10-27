@@ -4473,11 +4473,13 @@
         "title": "Pievienot lapas",
         "body": "Pievienot lietotnei savas lapas, katru ar pogu navigācijas joslā."
       },
+      "ui_embedded_view": { "title": "Open external views", "body": "Show approved external pages inside {appName} and exchange messages with them. The plugin can ask you to finish its work before leaving." },
       "http_proxy": {
         "title": "Izmantot jūsu savienotos kontus",
         "body": "Sūtīt pieprasījumus caur {appName} serveri ar kontu vai atslēgu, ko iestatījāt jūs vai jūsu administrators. Spraudnis nekad neredz paroli, taču tas var darīt visu, ko šis konts var darīt savā serverī."
       }
     },
+    "embedded_view": { "close_without_waiting": "Close without waiting", "force_close": "Close this view without waiting for the plugin? This may interrupt its work.", "close_failed": "The plugin has not finished closing. You can continue or close the view without waiting." },
     "dialog": {
       "from_plugin": "No spraudņa {name}",
       "ok": "Labi",
