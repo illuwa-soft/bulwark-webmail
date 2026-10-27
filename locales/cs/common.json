@@ -4473,11 +4473,13 @@
         "title": "Přidávat stránky",
         "body": "Přidává do aplikace vlastní stránky, každou s tlačítkem v navigačním panelu."
       },
+      "ui_embedded_view": { "title": "Open external views", "body": "Show approved external pages inside {appName} and exchange messages with them. The plugin can ask you to finish its work before leaving." },
       "http_proxy": {
         "title": "Používat účty, které připojíte",
         "body": "Odesílá požadavky přes server aplikace {appName} pomocí účtu nebo klíče, který jste nastavili vy nebo váš správce. Plugin nikdy nevidí heslo, ale může na příslušném serveru dělat cokoli, co může tento účet."
       }
     },
+    "embedded_view": { "close_without_waiting": "Close without waiting", "force_close": "Close this view without waiting for the plugin? This may interrupt its work.", "close_failed": "The plugin has not finished closing. You can continue or close the view without waiting." },
     "dialog": {
       "from_plugin": "Od pluginu {name}",
       "ok": "OK",

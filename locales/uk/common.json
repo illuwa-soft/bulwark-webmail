@@ -4473,11 +4473,13 @@
         "title": "Додавати сторінки",
         "body": "Додавати до програми власні сторінки, кожну з кнопкою на панелі навігації."
       },
+      "ui_embedded_view": { "title": "Open external views", "body": "Show approved external pages inside {appName} and exchange messages with them. The plugin can ask you to finish its work before leaving." },
       "http_proxy": {
         "title": "Використовувати підключені вами облікові записи",
         "body": "Надсилати запити через сервер {appName} з обліковим записом або ключем, який налаштували ви або ваш адміністратор. Плагін ніколи не бачить пароль, але може робити на цьому сервері все, що може цей обліковий запис."
       }
     },
+    "embedded_view": { "close_without_waiting": "Close without waiting", "force_close": "Close this view without waiting for the plugin? This may interrupt its work.", "close_failed": "The plugin has not finished closing. You can continue or close the view without waiting." },
     "dialog": {
       "from_plugin": "Від плагіна {name}",
       "ok": "OK",

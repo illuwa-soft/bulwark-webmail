@@ -9,6 +9,8 @@ import {
   saveRedirectAfterLogin,
 } from '../auth-store';
 import { useAccountStore, type AccountEntry } from '../account-store';
+import { createEmbeddedViewController } from '@/lib/plugin-embedded/controller';
+import { registerEmbeddedViewHost } from '@/lib/plugin-embedded/requests';
 
 // Sign-out ordering and RP-initiated logout (#905).
 
@@ -380,6 +382,33 @@ describe('signing out of several accounts', () => {
 
     expect(calls).toEqual(['DELETE /api/auth/session?all=true', 'DELETE /api/auth/token?all=true']);
     expect(replaceSpy).toHaveBeenCalledWith('/en/login');
+  });
+});
+
+describe('embedded page leave before changing authentication', () => {
+  it.each(['logout', 'logoutAll', 'switchAccount'] as const)('lets a plugin decline %s before credentials or identity change', async (action) => {
+    signIn([account({ id: 'active' }), account({ id: 'other', cookieSlot: 1 })]);
+    const fetch = vi.fn(async () => ok());
+    vi.stubGlobal('fetch', fetch);
+    const controller = createEmbeddedViewController(() => useAuthStore.getState().activeAccountId ?? '', { waitMs: 5 });
+    const root = document.createElement('div');
+    const remove = registerEmbeddedViewHost({ pluginId: 'example-view', controller, root });
+    const owner = { slot: 'app-page', signal: new AbortController().signal, container: root };
+    const { id } = controller.open(owner, { action: 'open', title: 'Example view', url: 'https://canvas.test/workspace/' }, { hostOrigin: 'https://mail.test', frameOrigins: ['https://canvas.test'], framePaths: ['/workspace/'] });
+    const pending = action === 'switchAccount' ? useAuthStore.getState().switchAccount('other') : useAuthStore.getState()[action]();
+    try {
+      const event = await controller.handle(owner, { action: 'next', id });
+      if (event?.type !== 'leave') throw new Error('Authentication changed without an embedded leave request');
+      expect(event.reason).toBe(action === 'switchAccount' ? 'account-switch' : 'logout');
+      expect(fetch).not.toHaveBeenCalled();
+      controller.handle(owner, { action: 'reply', id, requestId: event.requestId, allow: false });
+      await pending;
+      expect(useAuthStore.getState()).toMatchObject({ activeAccountId: 'active', isAuthenticated: true });
+      expect(fetch).not.toHaveBeenCalled();
+    } finally {
+      remove();
+      await pending;
+    }
   });
 });
 

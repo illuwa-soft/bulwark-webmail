@@ -4457,6 +4457,7 @@
         "title": "Add pages",
         "body": "Add its own pages to the app, each with a button in the navigation bar."
       },
+      "ui_embedded_view": { "title": "Open external views", "body": "Show approved external pages inside {appName} and exchange messages with them. The plugin can ask you to finish its work before leaving." },
       "http_proxy": {
         "title": "Use accounts you connect",
         "body": "Send requests through {appName}'s server with an account or key that you or your administrator set up. The plugin never sees the password, but it can do anything that account can do on its own server."
@@ -4478,6 +4479,7 @@
         "body": "Show notifications on your device, or in the app if you haven't allowed them. Each one names the plugin."
       }
     },
+    "embedded_view": { "close_without_waiting": "Close without waiting", "force_close": "Close this view without waiting for the plugin? This may interrupt its work.", "close_failed": "The plugin has not finished closing. You can continue or close the view without waiting." },
     "dialog": {
       "from_plugin": "From the plugin {name}",
       "ok": "OK",

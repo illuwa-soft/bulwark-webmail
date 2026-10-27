@@ -4473,11 +4473,13 @@
         "title": "Legge til sider",
         "body": "Legge til egne sider i appen, hver med en knapp i navigasjonsfeltet."
       },
+      "ui_embedded_view": { "title": "Open external views", "body": "Show approved external pages inside {appName} and exchange messages with them. The plugin can ask you to finish its work before leaving." },
       "http_proxy": {
         "title": "Bruke kontoer du kobler til",
         "body": "Sende forespørsler via {appName}s server med en konto eller nøkkel som du eller administratoren din har satt opp. Tillegget ser aldri passordet, men det kan gjøre alt den kontoen kan gjøre på sin egen server."
       }
     },
+    "embedded_view": { "close_without_waiting": "Close without waiting", "force_close": "Close this view without waiting for the plugin? This may interrupt its work.", "close_failed": "The plugin has not finished closing. You can continue or close the view without waiting." },
     "dialog": {
       "from_plugin": "Fra tillegget {name}",
       "ok": "OK",

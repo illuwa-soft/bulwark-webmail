@@ -4473,11 +4473,13 @@
         "title": "Afegir pàgines",
         "body": "Afegir pàgines pròpies a l'aplicació, cadascuna amb un botó a la barra de navegació."
       },
+      "ui_embedded_view": { "title": "Open external views", "body": "Show approved external pages inside {appName} and exchange messages with them. The plugin can ask you to finish its work before leaving." },
       "http_proxy": {
         "title": "Fer servir els comptes que connecteu",
         "body": "Enviar peticions a través del servidor de {appName} amb un compte o una clau que heu configurat vós o el vostre administrador. El connector no veu mai la contrasenya, però pot fer tot el que aquest compte pot fer al seu propi servidor."
       }
     },
+    "embedded_view": { "close_without_waiting": "Close without waiting", "force_close": "Close this view without waiting for the plugin? This may interrupt its work.", "close_failed": "The plugin has not finished closing. You can continue or close the view without waiting." },
     "dialog": {
       "from_plugin": "Del connector {name}",
       "ok": "D'acord",

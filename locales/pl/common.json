@@ -4473,11 +4473,13 @@
         "title": "Własne strony",
         "body": "Dodaje do aplikacji własne strony, każdą z przyciskiem na pasku nawigacyjnym."
       },
+      "ui_embedded_view": { "title": "Open external views", "body": "Show approved external pages inside {appName} and exchange messages with them. The plugin can ask you to finish its work before leaving." },
       "http_proxy": {
         "title": "Korzystanie z połączonych przez Ciebie kont",
         "body": "Wysyła żądania przez serwer {appName} z użyciem konta lub klucza skonfigurowanego przez Ciebie lub Twojego administratora. Wtyczka nigdy nie widzi hasła, ale może zrobić na tym serwerze wszystko, co może to konto."
       }
     },
+    "embedded_view": { "close_without_waiting": "Close without waiting", "force_close": "Close this view without waiting for the plugin? This may interrupt its work.", "close_failed": "The plugin has not finished closing. You can continue or close the view without waiting." },
     "dialog": {
       "from_plugin": "Od wtyczki {name}",
       "ok": "OK",

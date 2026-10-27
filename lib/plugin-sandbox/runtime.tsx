@@ -39,6 +39,7 @@ import type {
 } from '../plugin-types';
 import { AddressBook, ContactCard } from '../jmap/types';
 import { EncryptionAtRestConfig, PublicKeyInput } from '@/stores/account-security-store';
+import type { EmbeddedViewCommand } from '../plugin-embedded/contracts';
 
 // ─── Module-scope state ──────────────────────────────────────
 
@@ -544,6 +545,8 @@ function buildPluginApi(manifest: PluginManifest) {
       warning: (m: string) => { void callApi('toast.warning', [m]); },
     },
     ui: {
+      /** The host owns frame authority; the plugin owns its payload protocol and leave decision. */
+      embeddedView: (command: EmbeddedViewCommand) => callApi('ui.embeddedView', [command]),
       /** Opens a host-rendered confirm dialog. Resolves to true on confirm, false otherwise.
        *  No timeout - it waits for the user's choice. */
       confirm: (opts: { title?: string; message?: string; confirmLabel?: string; cancelLabel?: string; danger?: boolean }) =>

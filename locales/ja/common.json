@@ -4473,11 +4473,13 @@
         "title": "ページを追加",
         "body": "アプリに独自のページを追加し、それぞれのボタンをナビゲーションバーに表示します。"
       },
+      "ui_embedded_view": { "title": "Open external views", "body": "Show approved external pages inside {appName} and exchange messages with them. The plugin can ask you to finish its work before leaving." },
       "http_proxy": {
         "title": "接続したアカウントを使用",
         "body": "あなたまたは管理者が設定したアカウントやキーを使って、{appName} のサーバー経由でリクエストを送信します。プラグインがパスワードを見ることはありませんが、そのアカウントがそのサーバーでできることはすべて実行できます。"
       }
     },
+    "embedded_view": { "close_without_waiting": "Close without waiting", "force_close": "Close this view without waiting for the plugin? This may interrupt its work.", "close_failed": "The plugin has not finished closing. You can continue or close the view without waiting." },
     "dialog": {
       "from_plugin": "プラグイン {name} から",
       "ok": "OK",

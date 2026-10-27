@@ -4473,11 +4473,13 @@
         "title": "Adăugarea de pagini",
         "body": "Adaugă pagini proprii în aplicație, fiecare cu un buton în bara de navigare."
       },
+      "ui_embedded_view": { "title": "Open external views", "body": "Show approved external pages inside {appName} and exchange messages with them. The plugin can ask you to finish its work before leaving." },
       "http_proxy": {
         "title": "Folosirea conturilor pe care le conectați",
         "body": "Trimite cereri prin serverul {appName} cu un cont sau o cheie configurate de dvs. sau de administratorul dvs. Pluginul nu vede niciodată parola, dar poate face tot ce poate face acel cont pe serverul său."
       }
     },
+    "embedded_view": { "close_without_waiting": "Close without waiting", "force_close": "Close this view without waiting for the plugin? This may interrupt its work.", "close_failed": "The plugin has not finished closing. You can continue or close the view without waiting." },
     "dialog": {
       "from_plugin": "De la pluginul {name}",
       "ok": "OK",

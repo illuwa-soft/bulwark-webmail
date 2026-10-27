@@ -4473,11 +4473,13 @@
         "title": "Ajouter des pages",
         "body": "Ajouter ses propres pages à l'application, chacune avec un bouton dans la barre de navigation."
       },
+      "ui_embedded_view": { "title": "Open external views", "body": "Show approved external pages inside {appName} and exchange messages with them. The plugin can ask you to finish its work before leaving." },
       "http_proxy": {
         "title": "Utiliser les comptes que vous connectez",
         "body": "Envoyer des requêtes via le serveur de {appName} avec un compte ou une clé configurés par vous ou votre administrateur. Le plugin ne voit jamais le mot de passe, mais il peut faire tout ce que ce compte peut faire sur son propre serveur."
       }
     },
+    "embedded_view": { "close_without_waiting": "Close without waiting", "force_close": "Close this view without waiting for the plugin? This may interrupt its work.", "close_failed": "The plugin has not finished closing. You can continue or close the view without waiting." },
     "dialog": {
       "from_plugin": "Du plugin {name}",
       "ok": "OK",
