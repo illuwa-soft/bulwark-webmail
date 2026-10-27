@@ -19,6 +19,7 @@ import { resolveDateLocale } from '../utils';
 import { getEffectiveTimeZone } from '../timezone';
 import { getEffectiveLocale } from '@/i18n/detect-locale';
 import { useSettingsStore, type DateLocale } from '@/stores/settings-store';
+import type { EmbeddedViewOwner } from '../plugin-embedded/contracts';
 import type {
   SandboxToHost, HostToSandbox, InitMsg, InitPayload, StreamChunkMsg, StreamEndMsg, StreamProgressMsg,
   FloatingDropdownOpenMsg, FloatingDropdownUpdateMsg, FloatingDropdownCloseMsg,
@@ -289,6 +290,8 @@ export class SandboxInstance {
   private rejectInit!: (err: Error) => void;
   private listener: (ev: MessageEvent) => void;
   private destroyed = false;
+  private embeddedAbort = new AbortController();
+  private embeddedOwner: EmbeddedViewOwner;
 
   private pendingHookInvokes = new Map<string, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
   private pendingShouldShow = new Map<string, (show: boolean) => void>();
@@ -308,6 +311,7 @@ export class SandboxInstance {
   ) {
     this.pluginId = plugin.id;
     this.mode = initPayload.mode;
+    this.embeddedOwner = { slot: initPayload.mode === 'slot' ? initPayload.slot : null, signal: this.embeddedAbort.signal, container: hostContainer };
     this.privileged = initPayload.tier === 'privileged';
     this.inline = initPayload.mode === 'slot' && isInlineSlot(initPayload.slot);
 
@@ -453,7 +457,7 @@ export class SandboxInstance {
         const { id, method, args } = msg;
         void (async () => {
           try {
-            const result = await dispatchApiCall(this.plugin, method, args ?? [], { privileged: this.privileged, sink: this });
+            const result = await dispatchApiCall(this.plugin, method, args ?? [], { privileged: this.privileged, sink: this, embeddedOwner: this.embeddedOwner });
             this.send({ type: 'api-response', id, ok: true, result });
           } catch (err) {
             this.send({ type: 'api-response', id, ok: false, error: (err as Error).message ?? String(err) });
@@ -624,6 +628,7 @@ export class SandboxInstance {
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.embeddedAbort.abort();
     liveInstances.delete(this);
     window.removeEventListener('message', this.listener);
     this.iframe.remove();

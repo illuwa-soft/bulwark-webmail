@@ -59,8 +59,8 @@ import { setSectionTitle } from './section-titles';
 import { requestPanel } from './panel-requests';
 import { doComposerAttach, doComposerGetBody, doComposerGetSelection, doComposerReplaceBody, doComposerReplaceSelection } from './host-api-composer';
 import { doReadPage, doFilesReadText } from './host-api-read-pages';
-import { OFFICE_API_PATH, object } from '../office/contracts';
-import { requestOfficeEditor } from '../office/requests';
+import { readEmbeddedCommand, type EmbeddedViewOwner } from '../plugin-embedded/contracts';
+import { requestEmbeddedView } from '../plugin-embedded/requests';
 
 /**
  * Methods only callable from the privileged (same-origin) tier. These expose
@@ -229,7 +229,7 @@ export const PERM_PER_METHOD: Readonly<Record<string, Permission | null>> = {
   'ui.refreshRowBadges': null,
   'ui.setDayLabels': 'ui:calendar-action',
   'ui.setPages': 'ui:app-page',
-  'office.openEditor': 'ui:office-editor',
+  'ui.embeddedView': 'ui:embedded-view',
   'ui.setSectionTitle': 'ui:sidebar-widget',
   // Open, close or toggle the panel the plugin's slot sits in; the panel's
   // own permission is checked per call (see the slot catalogue).
@@ -1844,7 +1844,7 @@ export async function dispatchApiCall(
   plugin: InstalledPlugin,
   method: string,
   args: unknown[],
-  opts?: { privileged?: boolean; sink?: StreamSink },
+  opts?: { privileged?: boolean; sink?: StreamSink; embeddedOwner?: EmbeddedViewOwner },
 ): Promise<unknown> {
   // Tier gate: privileged-only methods are refused for untrusted (null-origin)
   // instances even if the permission is somehow present. Defence-in-depth on
@@ -1864,22 +1864,15 @@ export async function dispatchApiCall(
   }
 
   switch (method) {
-    case 'office.openEditor': {
-      const apiPath = OFFICE_API_PATH;
-      if (IS_LITE || !apiPath) throw new Error('Office editors require the full app');
-      const input = object(args[0]);
-      if (Object.keys(input).length !== 1 || typeof input.fileId !== 'string' || !input.fileId || input.fileId.length > 256) throw new Error('office.openEditor requires only fileId');
-      if (!pluginHasPermission(plugin, 'http:post') || !pluginHasPermission(plugin, 'ui:app-page')) throw new Error('Office needs its app page and authenticated API');
-      return requestOfficeEditor({
-        fileId: input.fileId,
-        pluginId: plugin.id,
+    case 'ui.embeddedView': {
+      if (IS_LITE) throw new Error('Embedded views require the full app');
+      if (!pluginHasPermission(plugin, 'ui:app-page')) throw new Error('Embedded views require the app-page permission');
+      const scope = opts?.embeddedOwner;
+      if (!scope || scope.slot !== 'app-page' || scope.signal.aborted) throw new Error('Embedded views require a live app-page instance');
+      return requestEmbeddedView(plugin.id, scope, readEmbeddedCommand(args[0]), {
         hostOrigin: window.location.origin,
-        allowedOrigins: plugin.frameOrigins ?? [],
-        request: async command => {
-          const response = await doHttpPost(plugin, apiPath, command);
-          if (!response.ok) throw new Error(`Office request failed (${response.status})`);
-          return response.data;
-        },
+        frameOrigins: plugin.frameOrigins ?? [],
+        framePaths: plugin.framePaths ?? [],
       });
     }
     case 'email.query':

@@ -13,7 +13,7 @@ import { InlineAppView } from "@/components/layout/inline-app-view";
 import { MvTopBar } from "@/components/layout/mv-top-bar";
 import { AppTopBannerSlot } from "@/components/plugins/app-top-banner-slot";
 import { PluginIframeSlot } from "@/components/plugins/plugin-iframe-slot";
-import { OfficeWorkspace } from "@/components/plugins/office-workspace";
+import { EmbeddedWorkspace } from "@/components/plugins/embedded-workspace";
 import { useSidebarApps } from "@/hooks/use-sidebar-apps";
 import { useIsEmbedded } from "@/hooks/use-is-embedded";
 import { useIsMobile } from "@/hooks/use-media-query";
@@ -153,7 +153,7 @@ export function PluginPageApp({ linkSegments = [] }: PluginPageAppProps) {
         <div className="flex flex-col flex-1 min-w-0">
           {inlineApp && <InlineAppView apps={loadedApps} activeAppId={inlineApp.id} onClose={closeInlineApp} />}
           <div className={cn("flex flex-col flex-1 min-h-0", inlineApp && "hidden")}>
-            {IS_LITE ? content : <OfficeWorkspace pluginId={pluginId}>{content}</OfficeWorkspace>}
+            {IS_LITE ? content : <EmbeddedWorkspace pluginId={pluginId}>{content}</EmbeddedWorkspace>}
           </div>
           {isMobile && !isEmbedded && (
             <NavigationRail

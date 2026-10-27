@@ -130,6 +130,7 @@ export const usePluginStore = create<PluginStoreState>()(
             : {}),
           ...(manifest.credentials ? { credentials: manifest.credentials } : {}),
           ...(manifest.frameOrigins ? { frameOrigins: manifest.frameOrigins } : {}),
+          ...(manifest.framePaths ? { framePaths: manifest.framePaths } : {}),
         };
 
         // Save code to IndexedDB
@@ -411,6 +412,7 @@ interface ServerPluginInfo {
   /** Allowlist of origins this plugin may target via api.http.fetch(). */
   httpOrigins?: string[];
   frameOrigins?: string[];
+  framePaths?: string[];
   /** Allowlist of same-origin /api/* paths this plugin may target via api.http.post(). */
   apiPostPaths?: string[];
   /** Per-user settings schema, captured from the manifest server-side. */
@@ -441,6 +443,7 @@ function serverMeta(sp: ServerPluginInfo) {
     bundleHash: sp.bundleHash,
     httpOrigins: sp.httpOrigins,
     frameOrigins: sp.frameOrigins,
+    framePaths: sp.framePaths,
     apiPostPaths: sp.apiPostPaths,
     settingsSchema: sp.settingsSchema,
     locales: sp.locales,

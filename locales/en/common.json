@@ -4394,9 +4394,11 @@
         "title": "Add pages",
         "body": "Add its own pages to the app, each with a button in the navigation bar."
       },
-      "ui_office_editor": {
-        "title": "Edit documents inside the app",
-        "body": "Open selected documents in an approved editor inside {appName}. The editor receives their content and can save changes through the document gateway."
+      "ui_embedded_view": {
+        "title": "Open external views inside the app",
+        "body": "Display approved external pages inside {appName}, exchange messages and wait for the plugin before leaving. External pages remain separate from your mail session.",
+        "force_close": "Close this view without waiting? Its work may not be saved.",
+        "close_failed": "The plugin did not finish closing. You can keep working or close the view without waiting."
       },
       "http_proxy": {
         "title": "Use accounts you connect",

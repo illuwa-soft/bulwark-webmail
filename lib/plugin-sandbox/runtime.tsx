@@ -41,6 +41,7 @@ import type {
 import { AddressBook, ContactCard } from '../jmap/types';
 import { EncryptionAtRestConfig, PublicKeyInput } from '@/stores/account-security-store';
 import type { EmailQueryOptions, EmailQueryPage, CalendarQueryOptions, CalendarQueryPage, ContactQueryOptions, ContactQueryPage, FileQueryOptions, FileQueryPage, FileText } from '../plugin-read-types';
+import type { EmbeddedViewCommand } from '../plugin-embedded/contracts';
 
 // ─── Module-scope state ──────────────────────────────────────
 
@@ -538,11 +539,9 @@ function buildPluginApi(manifest: PluginManifest) {
       info: (m: string) => { void callApi('toast.info', [m]); },
       warning: (m: string) => { void callApi('toast.warning', [m]); },
     },
-    office: {
-      /** Opens a host-owned cross-origin editor inside this plugin's app page, until closed. */
-      openEditor: (input: { fileId: string }) => callApi('office.openEditor', [input], 0),
-    },
     ui: {
+      /** A page-scoped external view. The plugin owns its protocol and leave acknowledgement. */
+      embeddedView: (command: EmbeddedViewCommand) => callApi('ui.embeddedView', [command]),
       /** Opens a host-rendered confirm dialog. Resolves to true on confirm, false otherwise.
        *  No timeout - it waits for the user's choice. */
       confirm: (opts: { title?: string; message?: string; confirmLabel?: string; cancelLabel?: string; danger?: boolean }) =>
