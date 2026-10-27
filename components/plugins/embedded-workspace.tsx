@@ -10,10 +10,13 @@ import { EmbeddedView } from './embedded-view';
 /** Retain the sandbox DOM while an external view occupies its page. */
 export function EmbeddedWorkspace({ pluginId, children }: { pluginId: string; children: ReactNode }) {
   const accountId = useAuthStore(state => state.activeAccountId);
-  const identity = useRef(accountId);
-  identity.current = accountId;
+  const renderedAccount = useRef(accountId);
+  renderedAccount.current = accountId;
   const page = useRef<HTMLDivElement>(null);
-  const [controller] = useState(() => createEmbeddedViewController(() => identity.current ?? ''));
+  const [controller] = useState(() => createEmbeddedViewController(() => {
+    const current = useAuthStore.getState().activeAccountId;
+    return current === renderedAccount.current ? current ?? '' : '';
+  }));
   const hidden = useStore(controller.store, state => !!state.view && !state.detached);
   useEffect(() => {
     if (page.current) return registerEmbeddedViewHost({ pluginId, controller, root: page.current });

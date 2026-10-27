@@ -3,9 +3,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EmbeddedWorkspace } from '../embedded-workspace';
 import { disposeEmbeddedViews, requestEmbeddedView } from '@/lib/plugin-embedded/requests';
 
-vi.mock('@/stores/auth-store', () => ({ useAuthStore: (select: (state: { activeAccountId: string }) => unknown) => select({ activeAccountId: 'a' }) }));
+const authState = vi.hoisted(() => ({ activeAccountId: 'a' }));
+vi.mock('@/stores/auth-store', () => ({ useAuthStore: Object.assign((select: (state: typeof authState) => unknown) => select(authState), { getState: () => authState }) }));
 vi.mock('next-intl', () => ({ useTranslations: () => (key: string) => key }));
-afterEach(() => { act(() => disposeEmbeddedViews()); vi.restoreAllMocks(); });
+afterEach(() => { act(() => disposeEmbeddedViews()); authState.activeAccountId = 'a'; vi.restoreAllMocks(); });
 
 describe('embedded page composition', () => {
   const policy = { hostOrigin: window.location.origin, frameOrigins: ['https://canvas.test'], framePaths: ['/workspace/'] };
@@ -48,6 +49,19 @@ describe('embedded page composition', () => {
     await act(async () => { requestEmbeddedView('example-view', scope, { action: 'reply', id, requestId: retry.requestId, allow: false }, policy); });
     fireEvent.click(screen.getByRole('button', { name: 'close_without_waiting' }));
     expect(confirm).toHaveBeenCalledOnce();
+    expect(screen.queryByTitle('Example')).toBeNull();
+  });
+
+  it('checks the current account even before React commits an account change', async () => {
+    render(<EmbeddedWorkspace pluginId="example-view"><div data-testid="page" /></EmbeddedWorkspace>);
+    const scope = { slot: 'app-page', signal: new AbortController().signal, container: screen.getByTestId('page') };
+    let id = '';
+    await act(async () => { id = open(scope).id; });
+    act(() => {
+      authState.activeAccountId = 'b';
+      expect(() => requestEmbeddedView('example-view', scope, { action: 'next', id }, policy)).toThrow(/account/);
+      expect(() => open(scope)).toThrow(/account/);
+    });
     expect(screen.queryByTitle('Example')).toBeNull();
   });
 });
