@@ -58,7 +58,7 @@ import { doComposeOpen, doComposeReply, doDraftsCreate } from './host-api-compos
 import { doNotificationsShow } from './host-api-notify';
 import { setSectionTitle } from './section-titles';
 import { requestPanel } from './panel-requests';
-import { doComposerAttach, doComposerGetBody, doComposerGetSelection, doComposerReplaceBody, doComposerReplaceSelection } from './host-api-composer';
+import { doComposerAttach, doComposerGetBody, doComposerGetSelection, doComposerGetSnapshot, doComposerReadAttachment, doComposerReplaceBody, doComposerReplaceSelection } from './host-api-composer';
 
 /**
  * Methods only callable from the privileged (same-origin) tier. These expose
@@ -280,6 +280,8 @@ export const PERM_PER_METHOD: Readonly<Record<string, Permission | null>> = {
   'notifications.show': 'ui:notifications',
   // The message being written, in a composer that handed the plugin its id.
   'composer.getBody': 'compose:read',
+  'composer.getSnapshot': 'compose:read',
+  'composer.readAttachment': 'email:blob-read',
   'composer.getSelection': 'compose:read',
   'composer.replaceSelection': 'compose:write',
   'composer.replaceBody': 'compose:write',
@@ -2188,9 +2190,11 @@ export async function dispatchApiCall(
     case 'notifications.show': return doNotificationsShow(plugin, args[0]);
 
     case 'composer.getBody': return doComposerGetBody(plugin, args[0]);
+    case 'composer.getSnapshot': return doComposerGetSnapshot(plugin, args[0]);
+    case 'composer.readAttachment': return doComposerReadAttachment(plugin, args[0], args[1]);
     case 'composer.getSelection': return doComposerGetSelection(plugin, args[0]);
     case 'composer.replaceSelection': return doComposerReplaceSelection(plugin, args[0], args[1], args[2]);
-    case 'composer.replaceBody': return doComposerReplaceBody(plugin, args[0], args[1]);
+    case 'composer.replaceBody': return doComposerReplaceBody(plugin, args[0], args[1], args[2]);
     case 'composer.attach': return doComposerAttach(plugin, args[0], args[1]);
 
     default:
