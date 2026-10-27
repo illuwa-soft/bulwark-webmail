@@ -20,6 +20,10 @@ import { Avatar } from "@/components/ui/avatar";
 import { SubMenuPanel } from "@/components/ui/context-menu";
 import { ReaderSelectionMenu, useReaderSelectionMenu, watchBodySelection, watchElementSelection } from "./reader-selection-menu";
 import { onPanelRequest } from "@/lib/plugin-sandbox/panel-requests";
+import type { ComposerMetadata } from "@/lib/plugin-sandbox/composer-registry";
+import { QuickReplyPluginActions } from "./quick-reply-plugin-actions";
+import { buildReplyRecipients, isSelfSent } from "@/lib/reply-recipients";
+import { findDraftIdentityId, findReplyIdentityId } from "@/lib/reply-identity";
 import { formatFileSize, cn, MailboxNode, formatDate, formatDateTime, formatRelativeAgo, generateUUID, cleanPreview } from "@/lib/utils";
 import { getEffectiveTimeZone, getWallClock } from "@/lib/timezone";
 import { itemsToHide } from "@/lib/toolbar-overflow";
@@ -1367,8 +1371,25 @@ export function EmailViewer({
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
   }, [inAppPreview]);
   const [quickReplyText, setQuickReplyText] = useState("");
+  const quickReplyRef = useRef<HTMLTextAreaElement>(null);
   const [isQuickReplyFocused, setIsQuickReplyFocused] = useState(false);
   const [isSendingQuickReply, setIsSendingQuickReply] = useState(false);
+  /** Follow the native reply recipient and identity rules without sending.
+   * 발송 없이 기본 답장의 수신인·identity 선택 규칙을 따릅니다. */
+  const quickMetadata = (): ComposerMetadata => {
+    if (!email) return { subject: '', to: [], attachments: [] };
+    const ownAddresses = identities.map(identity => identity.email).filter(Boolean);
+    const source = { from: email.from, replyToAddresses: email.replyTo, to: email.to, cc: email.cc };
+    const to = buildReplyRecipients(source, 'reply', ownAddresses).to
+      .map(recipient => recipient.email).filter((address): address is string => Boolean(address));
+    let identityId = findReplyIdentityId(identities, email) ?? identities[0]?.id;
+    if (isSelfSent(source, ownAddresses)) identityId = findDraftIdentityId(identities, email.from?.[0]) ?? identityId;
+    return {
+      subject: email.subject ?? '', to, attachments: [], identityId,
+      accountKey: JSON.stringify([activeAccountId, email.sourceClientAccountId, email.sourceAccountId]),
+      pending: isSendingQuickReply,
+    };
+  };
   const handleSendQuickReply = async () => {
     if (!quickReplyText.trim() || !onQuickReply || isSendingQuickReply) return;
     setIsSendingQuickReply(true);
@@ -3043,6 +3064,8 @@ export function EmailViewer({
   const [iframeReadyFor, setIframeReadyFor] = useState<string | null>(null);
   const latestSrcDocRef = useRef<string | null>(null);
   const iframeReady = iframeReadyFor !== null && iframeReadyFor === emailIframeSrcDoc;
+  const showQuickReply = !!email && quickReplyEnabled && !mvReplyRow && !isDraft && !isScheduled && !isBodyLoading
+    && (!effectiveEmailContent.isHtml || iframeReady);
   // The plain-text body, where reader-above-quote mounts between text and quote.
   const [plainBodyEl, setPlainBodyEl] = useState<HTMLDivElement | null>(null);
   // A plain-text body sits in the page: watch the page's selection for it.
@@ -6381,7 +6404,7 @@ export function EmailViewer({
           )}
 
           {/* Quick Reply Section - hidden for drafts and while loading a new email */}
-          {quickReplyEnabled && !mvReplyRow && !isDraft && !isScheduled && !isBodyLoading && (effectiveEmailContent.isHtml ? iframeReady : true) && (<div className="bg-background border-t border-border px-6 mt-auto" style={{ paddingBlock: 'var(--density-header-py)' }}>
+          {showQuickReply && (<div className="bg-background border-t border-border px-6 mt-auto" style={{ paddingBlock: 'var(--density-header-py)' }}>
             <div className="flex items-start" style={{ gap: 'var(--density-item-gap)' }}>
               <div className="flex-shrink-0">
                 <Avatar
@@ -6395,6 +6418,7 @@ export function EmailViewer({
               </div>
               <div className="flex-1 min-w-0 space-y-3">
                   <textarea
+                    ref={quickReplyRef}
                     value={quickReplyText}
                     onChange={(e) => setQuickReplyText(e.target.value)}
                     onFocus={() => setIsQuickReplyFocused(true)}
@@ -6416,11 +6440,11 @@ export function EmailViewer({
 
                   {/* Action buttons - show when focused or has text */}
                   {(isQuickReplyFocused || quickReplyText) && (
-                    <div className="flex items-center justify-between gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <div className="flex flex-wrap items-center justify-between gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
                       <div className="text-xs text-muted-foreground">
                         {t('characters_count', { count: quickReplyText.length })}
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2 min-w-0">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -6446,6 +6470,12 @@ export function EmailViewer({
                           <MoreVertical className="w-4 h-4 me-1" />
                           {t('more_options')}
                         </Button>
+                        <QuickReplyPluginActions
+                          key={JSON.stringify([email.id, activeAccountId, email.sourceClientAccountId, email.sourceAccountId])}
+                          inputRef={quickReplyRef}
+                          readMetadata={quickMetadata}
+                          onChange={setQuickReplyText}
+                        />
                         <Button
                           size="sm"
                           onClick={handleSendQuickReply}
