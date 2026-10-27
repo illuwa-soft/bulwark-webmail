@@ -20,9 +20,8 @@ import { Avatar } from "@/components/ui/avatar";
 import { SubMenuPanel } from "@/components/ui/context-menu";
 import { ReaderSelectionMenu, useReaderSelectionMenu, watchBodySelection, watchElementSelection } from "./reader-selection-menu";
 import { onPanelRequest } from "@/lib/plugin-sandbox/panel-requests";
-import { registerComposer, type ComposerMetadata } from "@/lib/plugin-sandbox/composer-registry";
-import { replaceTextareaRange, textToEditorHtml } from "@/lib/plugin-sandbox/composer-edit";
-import { ComposerPluginToolbarButtons } from "./composer-toolbar-menu";
+import type { ComposerMetadata } from "@/lib/plugin-sandbox/composer-registry";
+import { QuickReplyPluginActions } from "./quick-reply-plugin-actions";
 import { buildReplyRecipients, isSelfSent } from "@/lib/reply-recipients";
 import { findDraftIdentityId, findReplyIdentityId } from "@/lib/reply-identity";
 import { formatFileSize, cn, MailboxNode, formatDate, formatDateTime, formatRelativeAgo, generateUUID, cleanPreview } from "@/lib/utils";
@@ -1373,7 +1372,6 @@ export function EmailViewer({
   }, [inAppPreview]);
   const [quickReplyText, setQuickReplyText] = useState("");
   const quickReplyRef = useRef<HTMLTextAreaElement>(null);
-  const [quickComposerId, setQuickComposerId] = useState<string | null>(null);
   const [isQuickReplyFocused, setIsQuickReplyFocused] = useState(false);
   const [isSendingQuickReply, setIsSendingQuickReply] = useState(false);
   /** Follow the native reply recipient and identity rules without sending.
@@ -1392,8 +1390,6 @@ export function EmailViewer({
       pending: isSendingQuickReply,
     };
   };
-  const quickMetadataRef = useRef(quickMetadata);
-  quickMetadataRef.current = quickMetadata;
   const handleSendQuickReply = async () => {
     if (!quickReplyText.trim() || !onQuickReply || isSendingQuickReply) return;
     setIsSendingQuickReply(true);
@@ -3070,40 +3066,6 @@ export function EmailViewer({
   const iframeReady = iframeReadyFor !== null && iframeReadyFor === emailIframeSrcDoc;
   const showQuickReply = !!email && quickReplyEnabled && !mvReplyRow && !isDraft && !isScheduled && !isBodyLoading
     && (!effectiveEmailContent.isHtml || iframeReady);
-  // The capability lives only as long as this quick-reply input is on screen.
-  // 간단 답장 입력창이 표시되는 동안에만 플러그인 핸들을 유지합니다.
-  useEffect(() => {
-    if (!showQuickReply) return;
-    const registration = registerComposer({
-      readBody: () => { const text = quickReplyRef.current?.value ?? ''; return { text, html: textToEditorHtml(text) }; },
-      readMetadata: () => quickMetadataRef.current(),
-      readSelection: () => {
-        const input = quickReplyRef.current;
-        const text = input?.value.slice(input.selectionStart, input.selectionEnd) ?? '';
-        return { text, html: textToEditorHtml(text), empty: !text };
-      },
-      replaceBody: (_html, text) => {
-        const input = quickReplyRef.current;
-        if (!input || input.disabled) return false;
-        const changed = replaceTextareaRange(input, 0, input.value.length, text);
-        if (changed) setQuickReplyText(input.value);
-        return changed;
-      },
-      replaceSelection: (_html, text, { below }) => {
-        const input = quickReplyRef.current;
-        if (!input || input.disabled) return false;
-        let from = input.selectionStart;
-        let replacement = text;
-        if (below) { from = input.selectionEnd; replacement = `\n\n${text}`; }
-        const changed = replaceTextareaRange(input, from, input.selectionEnd, replacement);
-        if (changed) setQuickReplyText(input.value);
-        return changed;
-      },
-      attach: async () => false,
-    });
-    setQuickComposerId(registration.id);
-    return registration.unregister;
-  }, [showQuickReply, email?.id, activeAccountId, email?.sourceClientAccountId, email?.sourceAccountId]);
   // The plain-text body, where reader-above-quote mounts between text and quote.
   const [plainBodyEl, setPlainBodyEl] = useState<HTMLDivElement | null>(null);
   // A plain-text body sits in the page: watch the page's selection for it.
@@ -6508,7 +6470,12 @@ export function EmailViewer({
                           <MoreVertical className="w-4 h-4 me-1" />
                           {t('more_options')}
                         </Button>
-                        {quickComposerId && <ComposerPluginToolbarButtons alwaysVisible surface="composer-toolbar-actions" context={() => ({ composerId: quickComposerId })} />}
+                        <QuickReplyPluginActions
+                          key={JSON.stringify([email.id, activeAccountId, email.sourceClientAccountId, email.sourceAccountId])}
+                          inputRef={quickReplyRef}
+                          readMetadata={quickMetadata}
+                          onChange={setQuickReplyText}
+                        />
                         <Button
                           size="sm"
                           onClick={handleSendQuickReply}

@@ -64,7 +64,7 @@ async function quickComposer() {
   fireEvent.click(button);
   await waitFor(() => expect(clicks).toHaveLength(1));
   const id = clicks[0].composerId as string;
-  return { input, handle: composerHandle(id)!, id, view, send };
+  return { input, handle: composerHandle(id)!, id, view, send, clicks };
 }
 
 describe('generic quick-reply composer actions', () => {
@@ -98,6 +98,17 @@ describe('generic quick-reply composer actions', () => {
     view.rerender(viewer(textEmail(), { isLoading: true }));
     expect(screen.queryByRole('textbox')).toBeNull();
     expect(composerHandle(id)).toBeNull();
+  });
+
+  it('gives a new message its own capability instead of reusing the previous id', async () => {
+    const { id, view, clicks } = await quickComposer();
+    view.rerender(viewer(textEmail('e2')));
+    expect(composerHandle(id)).toBeNull();
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'New draft' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Format text' }));
+    await waitFor(() => expect(clicks).toHaveLength(2));
+    expect(clicks[1].composerId).not.toBe(id);
+    expect(composerHandle(clicks[1].composerId)).not.toBeNull();
   });
 });
 
