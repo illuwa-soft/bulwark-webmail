@@ -2,7 +2,8 @@ import type { InstalledPlugin } from '../plugin-types';
 import type { FileNode } from '../jmap/types';
 import { fileHooks } from '../plugin-hooks';
 import { fileToView } from '../plugin-projection';
-import { readFileName, readId, readObject, readString, withinRate } from './host-api-input';
+import type { FileContent } from '../plugin-read-types';
+import { MAX_PLUGIN_FETCH_BYTES, readFileName, readId, readObject, readString, withinRate } from './host-api-input';
 import { writeScope } from './host-api-write-scope';
 
 type Scope = ReturnType<typeof writeScope>;
@@ -53,6 +54,25 @@ export async function doFilesGet(plugin: InstalledPlugin, idArg: unknown) {
   const scope = writeScope(plugin, 'files:read', method);
   const node = await ownNode(scope, id, method);
   return fileToView(node, await parentPath(scope, node.parentId, method));
+}
+
+/**
+ * Reads a primary-account file under the existing IPC body cap, rechecking authority after awaits.
+ * 기존 IPC 본문 한도 안에서 기본 계정 파일을 읽고 비동기 대기 후 권한을 재확인합니다.
+ */
+export async function doFilesReadContent(plugin: InstalledPlugin, idArg: unknown): Promise<FileContent> {
+  const method = 'files.readContent';
+  const id = ownId(idArg, method);
+  const scope = writeScope(plugin, 'files:read', method);
+  const node = await ownNode(scope, id, method);
+  if (!node.blobId || node.type === 'd') throw new Error(`${method}: select a regular file`);
+  if (!Number.isSafeInteger(node.size) || node.size < 0 || node.size > MAX_PLUGIN_FETCH_BYTES) {
+    throw new Error(`${method}: file is too large or has an invalid size; limit is ${MAX_PLUGIN_FETCH_BYTES} bytes`);
+  }
+  const data = await scope.client.fetchBlobArrayBuffer(node.blobId, node.name, node.type, scope.client.getFilesAccountId(), MAX_PLUGIN_FETCH_BYTES + 1);
+  scope.check();
+  if (data.byteLength > MAX_PLUGIN_FETCH_BYTES) throw new Error(`${method}: content is too large; limit is ${MAX_PLUGIN_FETCH_BYTES} bytes`);
+  return { id: node.id, name: node.name, type: node.type, size: data.byteLength, data };
 }
 
 /** Creates a bounded UTF-8 file or a directory, without accepting an arbitrary blob id. */

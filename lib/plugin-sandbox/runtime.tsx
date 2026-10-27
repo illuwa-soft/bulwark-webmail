@@ -472,6 +472,8 @@ function buildPluginApi(manifest: PluginManifest) {
     files: {
       query: (options?: FileQueryOptions) => callApi('files.query', [options]) as Promise<FileQueryPage>,
       readText: (id: string, options?: { maxBytes?: number }) => callApi('files.readText', [id, options], NETWORK_API_TIMEOUT_MS) as Promise<FileText>,
+      /** Read at most 25 MiB from an owning FileNode (files:read), without a URL, token or blob id. */
+      readContent: (id: string) => callApi('files.readContent', [id], NETWORK_API_TIMEOUT_MS) as Promise<import('../plugin-read-types').FileContent>,
       /** Creates at most 64 KiB UTF-8 in the primary FileNode account. Needs files:write. */
       createText: (input: import('../plugin-types').PluginTextFileInput) => callApi('files.createText', [input], NETWORK_API_TIMEOUT_MS) as Promise<import('../plugin-types').FileResourceView>,
       createDirectory: (input: import('../plugin-types').PluginDirectoryInput) => callApi('files.createDirectory', [input]) as Promise<import('../plugin-types').FileResourceView>,
