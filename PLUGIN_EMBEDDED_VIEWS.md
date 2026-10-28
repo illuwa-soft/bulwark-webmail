@@ -1,10 +1,10 @@
 # Plugin-owned embedded views
 
-`ui.embeddedView(command)` displays an approved external document inside the calling plugin's app page. The host owns frame authority and lifecycle. The plugin owns application controls, backend requests, message schemas, and the meaning of completion.
+`ui.embeddedView(command)` displays an approved external document inside the calling plugin's app page or native Files editor. The host owns frame authority and lifecycle. The plugin owns application controls, backend requests, message schemas, and the meaning of completion.
 
 ## Authority and placement
 
-The caller needs consent for `ui:embedded-view` and `ui:app-page`, its own mounted app page, and the bridge-owned identity of that exact sandbox instance. Background instances, other slots, other plugins, and another instance of the same plugin cannot use its handle. Removing the caller, changing accounts, or revoking authentication disposes the view and pending event wait.
+The caller needs consent for `ui:embedded-view` and its surface permission: `ui:app-page` for `app-page`, or `ui:files` for `file-editor`. It must own a mounted surface and the bridge-owned identity of that exact sandbox instance. Background instances, other slots, other plugins, and another instance of the same plugin cannot use its handle. Removing the caller, changing accounts, or revoking authentication disposes the view and pending event wait.
 
 The manifest declares `frameOrigins` and `framePaths`. Origins must match an exact, separate HTTPS origin; wildcard origins do not authorize host-owned views. Paths are exact entries or trailing-slash prefixes, with at most 32 entries. URL credentials, escaped paths, undeclared paths, and same-origin documents are rejected. Commands cannot supply headers, scripts, or sandbox flags.
 
@@ -39,10 +39,24 @@ The host waits at most 180 seconds. A denial or timeout keeps the view open and 
 
 ## Implementation and verification
 
+### Native Files integration
+
+The [slot catalog](lib/plugin-slot-catalog.ts) exposes three provider-neutral surfaces:
+
+- `file-create-actions`: `ui.setActions` adds entries to the existing writable folder's context menu. With `files:read`, `onAction` receives the captured `parentId`, native `accountId`, and display `path`. The provider owns name collection and content generation.
+- `file-open-actions`: `ui.setActions` declares a common editor with `fileExtensions`, an explicit list of 1–20 extensions without dots or wildcards. Native double-click and Edit use the first matching declaration in registry order; the file's context menu also offers each matching provider. Directories never match. Opening mounts the selected provider's frame rather than invoking a background action.
+- `file-editor`: the selected provider receives a credential-free `file` projection with its bare native ID and its native `accountId`, gated by `files:read`. It can use the existing embedded-view API. The original Files screen stays mounted.
+
+`files.refresh()` requires `files:read` and reloads the native listing without navigating. `ui.closeFileEditor()` requires `ui:files`, a live `file-editor` caller, the same plugin, and the exact owning DOM subtree. It still waits for the host's leave guard before returning to Files and refreshing size/mtime. A background or foreign instance cannot close it. Providers must validate the expected native account against their authenticated backend; an account ID is context, not authority.
+
+The host contains no Office document templates, provider credentials, or save-receipt interpretation. Existing native rename, move, upload, and delete remain the CRUD implementation. Without a matching editor provider, existing WOPI, preview, and download selection applies.
+
+Tests: [file menu and double-click](components/files/__tests__/files-plugin-surfaces.test.tsx), [extension and close ownership](lib/__tests__/plugin-file-editors.test.ts), and [embedded instance guards](lib/__tests__/embedded-view-controller.test.ts).
+
 - [controller.ts](lib/plugin-embedded/controller.ts): ownership, bounded events, leave acknowledgement, and account fences.
 - [requests.ts](lib/plugin-embedded/requests.ts): mounted pages and authentication lifecycle integration.
 - [embedded-workspace.tsx](components/plugins/embedded-workspace.tsx): retained plugin DOM and sibling placement.
 - [embedded-view-controller.test.ts](lib/__tests__/embedded-view-controller.test.ts): multiple provider URLs, forged messages, ownership, detach, timeout, and payload limits.
 - [embedded-view-api.test.ts](lib/__tests__/embedded-view-api.test.ts): consent, calling instance, and manifest validation.
 
-The companion [EuroOffice plugin](https://github.com/illuwa-soft/bulwark-eurooffice-gateway) owns its document session, save/close protocol, storage confirmation, and recovery UI. Its real-service fixture imports this host component and controller. That fixture is separate from installing or deploying the complete webmail application.
+The companion [EuroOffice plugin](https://github.com/illuwa-soft/bulwark-eurooffice-gateway) owns document generation, its session, save/close protocol, storage confirmation, and recovery UI. Its native-browser probe imports the host's actual Files component and stylesheet; gateway protocol and remote-renderer verification are separate checks. Installing or deploying the complete webmail application requires the operating profile.

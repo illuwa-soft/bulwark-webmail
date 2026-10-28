@@ -9,6 +9,7 @@ import { resetActions, setActionDispatcher, setPluginActions } from '@/lib/plugi
 import { clearSlotOffers, framePropsOf, offerSlots } from '@/components/plugins/__tests__/fake-slot-offer';
 import type { IJMAPClient } from '@/lib/jmap/client-interface';
 import type { FileResourceView } from '@/lib/plugin-types';
+import { findFileEditor } from '@/lib/plugin-sandbox/file-editors';
 
 // Plugin surfaces in Files: entries in an item's menu and buttons in the
 // selection toolbar (file-actions), and a section in the previews and the
@@ -40,18 +41,18 @@ const notesView: FileResourceView = {
   id: 'f-notes', name: 'notes.txt', type: 'file', size: 10, mimeType: 'text/plain', path: '/', modified: '2026-10-01T00:00:00Z',
 };
 
-function renderBrowser(selected: string[] = []) {
+function renderBrowser(selected: string[] = [], edit = vi.fn(), listed: FileResource[] = [folder, notes, photo]) {
   const client = { listAllFileNodesAcrossAccounts: vi.fn(async () => []) } as unknown as IJMAPClient;
   act(() => {
     useFileStore.setState({
-      client, sharedRoots: [], allFolders: [folder], currentParentId: null, pathStack: [{ id: null, name: '' }], hasListed: true,
+      client, resources: listed, sharedRoots: [], allFolders: [folder], currentParentId: null, pathStack: [{ id: null, name: '' }], hasListed: true,
     });
   });
   const noop = vi.fn(async () => {});
   render(
     <FileBrowser
       currentPath="/"
-      resources={[folder, notes, photo]}
+      resources={listed}
       isLoading={false}
       error={null}
       selectedResources={new Set(selected)}
@@ -61,6 +62,8 @@ function renderBrowser(selected: string[] = []) {
       onSetSelection={vi.fn()}
       onToggleSelect={vi.fn()}
       onPreviewFile={vi.fn()}
+      isOfficeEditable={(name) => Boolean(findFileEditor(name, false))}
+      onEditFile={edit}
       onDownload={noop}
       onCreateFolder={noop}
       onUploadFiles={noop}
@@ -117,6 +120,44 @@ afterEach(() => {
 });
 
 describe('file-actions', () => {
+  it('routes a file context-menu editor choice to the selected provider rather than its background hook', async () => {
+    setPluginActions('office', 'Office', 'file-open-actions', [{ id: 'open', label: 'Open in Office', fileExtensions: ['txt'] }]);
+    setPluginActions('other', 'Other', 'file-open-actions', [{ id: 'open', label: 'Open in Other', fileExtensions: ['txt'] }]);
+    const edit = vi.fn();
+    renderBrowser([], edit);
+    fireEvent.contextMenu(rowOf('notes.txt'));
+    await act(async () => { fireEvent.click(await screen.findByRole('menuitem', { name: 'Open in Other' })); });
+    expect(edit).toHaveBeenCalledWith('notes.txt', 'other');
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
+  it('uses the native row double-click path for registered Office documents and PDF, not AI', () => {
+    setPluginActions('office', 'Office', 'file-open-actions', [{ id: 'open', label: 'Office', fileExtensions: ['xlsx', 'docx', 'pptx', 'pdf'] }]);
+    const edit = vi.fn();
+    const files = ['budget.xlsx', 'slides.pptx', 'document.docx', 'paper.pdf', 'drawing.ai'].map((name, index) => ({ ...notes, id: `f-${index}`, name, serverName: name, contentType: 'application/octet-stream' }));
+    renderBrowser([], edit, files);
+
+    for (const name of ['budget.xlsx', 'slides.pptx', 'document.docx', 'paper.pdf']) fireEvent.doubleClick(rowOf(name));
+
+    expect(edit.mock.calls.map(([name]) => name)).toEqual(['budget.xlsx', 'slides.pptx', 'document.docx', 'paper.pdf']);
+    fireEvent.doubleClick(rowOf('drawing.ai'));
+    expect(edit).toHaveBeenCalledTimes(4);
+  });
+
+  it('offers file creators in the existing right-click menu with the captured account and folder', async () => {
+    act(() => setPluginActions('office', 'Office', 'file-create-actions', [
+      { id: 'xlsx', label: '새 Excel 스프레드시트' },
+      { id: 'pptx', label: '새 PowerPoint 프레젠테이션' },
+      { id: 'docx', label: '새 Word 문서' },
+      { id: 'pdf', label: '새 PDF' },
+    ]));
+    renderBrowser();
+    fireEvent.contextMenu(screen.getByRole('grid', { name: 'file_list' }));
+    const create = await screen.findByRole('menuitem', { name: '새 Excel 스프레드시트' });
+    await act(async () => { fireEvent.click(create); });
+    expect(dispatch).toHaveBeenCalledWith('office', 'file-create-actions', 'xlsx', { parentId: null, accountId: 'a', path: '/' });
+  });
+
   it('adds entries to an item menu, filtered by its type, and sends the item', async () => {
     act(() => setPluginActions('ocr', 'OCR', 'file-actions', [
       { id: 'read-text', label: 'Read text', mimeTypes: ['text/'] },

@@ -37,7 +37,7 @@ export function createEmbeddedViewController(identity: () => string, options: { 
     if (account !== identity() || scope.signal.aborted) { dispose(); throw new Error('Embedded view account changed'); }
   };
   const open = (scope: EmbeddedViewOwner, input: Extract<EmbeddedViewCommand, { action: 'open' }>, policy: FramePolicy) => {
-    if (scope.slot !== 'app-page' || scope.signal.aborted) throw new Error('Embedded views require a live app-page instance');
+    if (!['app-page', 'file-editor'].includes(scope.slot ?? '') || scope.signal.aborted) throw new Error('Embedded views require a live app-page or file-editor instance');
     if (store.getState().view) throw new Error('An embedded view is already open');
     const url = readEmbeddedUrl(input.url, policy);
     account = identity();

@@ -477,6 +477,8 @@ function buildPluginApi(manifest: PluginManifest) {
       ) => callApi('jmap.importRaw', [rawBytes, mailboxRoles, opts]),
     },
     files: {
+      /** Refreshes the native Files view without navigating or changing its selected folder. */
+      refresh: () => callApi('files.refresh', []) as Promise<void>,
       query: (options?: FileQueryOptions) => callApi('files.query', [options]) as Promise<FileQueryPage>,
       readText: (id: string, options?: { maxBytes?: number }) => callApi('files.readText', [id, options], NETWORK_API_TIMEOUT_MS) as Promise<FileText>,
       /** Read at most 25 MiB from an owning FileNode (files:read), without a URL, token or blob id. */
@@ -609,7 +611,7 @@ function buildPluginApi(manifest: PluginManifest) {
        * palette, ...). Replaces what this plugin set there before; [] removes
        * them. Clicks arrive in the `onAction({ surface, actionId, context })` hook.
        */
-      setActions: (surface: string, actions: Array<{ id: string; label: string; icon?: string; order?: number; mailboxRoles?: string[]; mimeTypes?: string[]; danger?: boolean }>) =>
+      setActions: (surface: string, actions: Array<{ id: string; label: string; icon?: string; order?: number; mailboxRoles?: string[]; mimeTypes?: string[]; fileExtensions?: string[]; danger?: boolean }>) =>
         callApi('ui.setActions', [surface, actions]) as Promise<void>,
       /**
        * Ask every visible message row for its onEmailListItemRender badges
@@ -622,6 +624,8 @@ function buildPluginApi(manifest: PluginManifest) {
       /** Full pages with a button in the navigation bar; the `app-page` slot renders them. */
       setPages: (pages: Array<{ id: string; title: string; icon?: string }>) =>
         callApi('ui.setPages', [pages]) as Promise<void>,
+      /** Finishes this provider's current Files editor through the host leave guard. */
+      closeFileEditor: () => callApi('ui.closeFileEditor', [], 0) as Promise<boolean>,
       /**
        * The header of this plugin's sidebar section (the host draws it like
        * Folders and Tags), e.g. a translated "Upcoming birthdays". null goes

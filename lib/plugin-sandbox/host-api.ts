@@ -66,6 +66,8 @@ import { doReadPage, doFilesReadText } from './host-api-read-pages';
 import { doPersistentStorage, type PersistentStorageOwner } from './host-api-persistent-storage';
 import { readEmbeddedCommand, type EmbeddedViewOwner } from '../plugin-embedded/contracts';
 import { requestEmbeddedView } from '../plugin-embedded/requests';
+import { closeFileEditor } from '@/lib/plugin-sandbox/file-editors';
+import { useFileStore } from '@/stores/file-store';
 
 /**
  * Methods only callable from the privileged (same-origin) tier. These expose
@@ -110,6 +112,7 @@ export const PERM_PER_METHOD: Readonly<Record<string, Permission | null>> = {
   'email.getPrimary': 'email:read',
   'email.update': 'email:write',
   'files.get': 'files:read',
+  'files.refresh': 'files:read',
   'email.query': 'email:read',
   'calendar.queryEvents': 'calendar:read',
   'contact.query': 'contacts:read',
@@ -252,6 +255,7 @@ export const PERM_PER_METHOD: Readonly<Record<string, Permission | null>> = {
   'ui.setDayLabels': 'ui:calendar-action',
   'ui.setPages': 'ui:app-page',
   'ui.embeddedView': 'ui:embedded-view',
+  'ui.closeFileEditor': 'ui:files',
   'ui.setSectionTitle': 'ui:sidebar-widget',
   // Open, close or toggle the panel the plugin's slot sits in; the panel's
   // own permission is checked per call (see the slot catalogue).
@@ -1891,15 +1895,21 @@ export async function dispatchApiCall(
   switch (method) {
     case 'ui.embeddedView': {
       if (IS_LITE) throw new Error('Embedded views require the full app');
-      if (!pluginHasPermission(plugin, 'ui:app-page')) throw new Error('Embedded views require the app-page permission');
+      const canUsePage = pluginHasPermission(plugin, 'ui:app-page');
+      const canUseFiles = pluginHasPermission(plugin, 'ui:files');
+      if (!canUsePage && !canUseFiles) throw new Error('Embedded view surface permission is required');
       const scope = opts?.embeddedOwner;
-      if (!scope || scope.slot !== 'app-page' || scope.signal.aborted) throw new Error('Embedded views require a live app-page instance');
+      if (!scope || !['app-page', 'file-editor'].includes(scope.slot ?? '') || scope.signal.aborted) throw new Error('Embedded views require a live app-page or file-editor instance');
+      if (scope.slot === 'app-page' && !canUsePage) throw new Error('Embedded app-page permission is required');
+      if (scope.slot === 'file-editor' && !canUseFiles) throw new Error('Embedded file-editor permission is required');
       return requestEmbeddedView(plugin.id, scope, readEmbeddedCommand(args[0]), {
         hostOrigin: window.location.origin,
         frameOrigins: plugin.frameOrigins ?? [],
         framePaths: plugin.framePaths ?? [],
       });
     }
+    case 'ui.closeFileEditor': return closeFileEditor(plugin.id, opts?.embeddedOwner);
+    case 'files.refresh': return useFileStore.getState().refresh();
     case 'email.query':
     case 'calendar.queryEvents':
     case 'contact.query':
@@ -1927,7 +1937,9 @@ export async function dispatchApiCall(
       const surface = args[0];
       if (typeof surface !== 'string' || !isActionSurface(surface)) throw new Error(`"${String(surface)}" is not a surface that takes actions`);
       if (!mayOfferSlot(plugin, surface)) throw new Error(`Plugin "${plugin.id}" may not add actions to "${surface}"`);
-      setPluginActions(plugin.id, plugin.name, surface, checkActions(args[1]));
+      const actions = checkActions(args[1]);
+      if (surface === 'file-open-actions' && actions.some((action) => !action.fileExtensions?.length)) throw new Error('File editors require explicit fileExtensions');
+      setPluginActions(plugin.id, plugin.name, surface, actions);
       return undefined;
     }
     case 'ui.refreshRowBadges': refreshRowBadges(); return undefined;

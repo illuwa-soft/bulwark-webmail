@@ -24,6 +24,8 @@ import type { FileNodeRights } from "@/lib/jmap/types";
 import { ImagePreviewModal } from "@/components/files/image-preview-modal";
 import { FilePreviewModal } from "@/components/files/file-preview-modal";
 import { WopiEditor } from "@/components/files/wopi-editor";
+import { PluginFileEditor } from '@/components/files/plugin-file-editor';
+import { usePluginFileEditor } from '@/hooks/use-plugin-file-editor';
 import { useWopiStatus, canWopiOpen } from "@/hooks/use-wopi-status";
 import { AppTopBannerSlot } from "@/components/plugins/app-top-banner-slot";
 import { AlertTriangle, Loader2 } from "@/components/icons";
@@ -125,7 +127,13 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
   // WOPI document editing (#425): name of the file open in the editor overlay.
   const [editFile, setEditFile] = useState<string | null>(null);
   const wopiStatus = useWopiStatus(filesEnabled);
-  const isOfficeEditable = useCallback((name: string) => canWopiOpen(wopiStatus, name), [wopiStatus]);
+  const { target: pluginEditorTarget, canOpen: canOpenPluginFile, open: openPluginFile, close: closePluginFile } = usePluginFileEditor(activeAccountId);
+  const isOfficeEditable = useCallback((name: string) => canOpenPluginFile(name) || canWopiOpen(wopiStatus, name), [canOpenPluginFile, wopiStatus]);
+  const handleEditFile = useCallback((name: string, pluginId?: string) => {
+    if (openPluginFile(name, pluginId)) return;
+    if (pluginId) return;
+    setEditFile(name);
+  }, [openPluginFile]);
 
   // Check auth on mount – skip when already authenticated so that navigating
   // between routes doesn't retrigger checkAuth's transient `{ client: null,
@@ -533,10 +541,10 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
       return;
     }
     addRecentFile(name, id);
-    if (isOfficeEditable(name)) setEditFile(name);
+    if (isOfficeEditable(name)) handleEditFile(name);
     else if (isImageFile(name)) setPreviewImage(name);
     else if (isFilePreviewable(name)) setPreviewFile(name);
-  }, [revealNode, addRecentFile, isOfficeEditable, tDeepLink]);
+  }, [revealNode, addRecentFile, isOfficeEditable, handleEditFile, tDeepLink]);
 
   // The permalink for the folder on screen. In the Pro shell only the focused
   // tab writes the address bar; the standard instance that renders while Pro
@@ -677,7 +685,7 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
                   onPreviewImage={handlePreviewImage}
                   onPreviewFile={handlePreviewFile}
                   isOfficeEditable={isOfficeEditable}
-                  onEditFile={setEditFile}
+                  onEditFile={handleEditFile}
                   onCreateTextFile={handleCreateTextFile}
                   onDuplicate={handleDuplicate}
                   getImageUrl={getImageUrl}
@@ -738,6 +746,7 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
       )}
 
       {/* WOPI document editor overlay (#425) */}
+      {pluginEditorTarget && <PluginFileEditor target={pluginEditorTarget} onClose={closePluginFile} />}
       {editFile && (() => {
         const editResource = resources.find(r => r.name === editFile);
         if (!editResource) return null;

@@ -17,7 +17,7 @@ import {
 const EMPTY: RegisteredAction[] = [];
 
 /** The actions plugins declared for a surface, filtered by folder role or MIME type. */
-export function usePluginActions(surface: string, filter: { mailboxRole?: string | null; mimeType?: string | null } = {}) {
+export function usePluginActions(surface: string, filter: { mailboxRole?: string | null; mimeType?: string | null; fileName?: string | null } = {}) {
   const all = useSyncExternalStore(subscribeActions, () => actionsFor(surface), () => EMPTY);
   return all.filter((a) => actionApplies(a, filter));
 }
@@ -31,6 +31,9 @@ interface PluginActionsProps {
   variant?: 'buttons' | 'menu';
   mailboxRole?: string | null;
   mimeType?: string | null;
+  fileName?: string | null;
+  /** Host-owned routing for actions that mount a native provider frame. */
+  onAction?: (action: RegisteredAction) => Promise<void>;
   className?: string;
   /** Icon-only buttons with the label as tooltip (narrow toolbars). */
   compact?: boolean;
@@ -44,12 +47,12 @@ interface PluginActionsProps {
  * Buttons or menu entries plugins declared with api.ui.setActions. The host
  * draws them so they match the app; the plugin gets the click.
  */
-export function PluginActions({ surface, context, variant = 'buttons', mailboxRole, mimeType, className, compact, overflow, onRan }: PluginActionsProps) {
-  const actions = usePluginActions(surface, { mailboxRole, mimeType });
+export function PluginActions({ surface, context, variant = 'buttons', mailboxRole, mimeType, fileName, onAction, className, compact, overflow, onRan }: PluginActionsProps) {
+  const actions = usePluginActions(surface, { mailboxRole, mimeType, fileName });
   const [busy, setBusy] = useState<string | null>(null);
   if (actions.length === 0) return null;
   if (overflow && variant === 'buttons') {
-    return <PluginActionsOverflow surface={surface} context={context} mailboxRole={mailboxRole} mimeType={mimeType} className={className} />;
+    return <PluginActionsOverflow surface={surface} context={context} mailboxRole={mailboxRole} mimeType={mimeType} fileName={fileName} onAction={onAction} className={className} />;
   }
 
   const run = async (action: RegisteredAction) => {
@@ -57,6 +60,7 @@ export function PluginActions({ surface, context, variant = 'buttons', mailboxRo
     setBusy(key);
     try {
       onRan?.();
+      if (onAction) { await onAction(action); return; }
       await runAction(action, surface, context);
     } finally {
       setBusy((current) => (current === key ? null : current));
@@ -110,7 +114,7 @@ export function PluginActions({ surface, context, variant = 'buttons', mailboxRo
 }
 
 /** The actions of a surface behind one "more" button, for toolbars without room for them. */
-function PluginActionsOverflow({ surface, context, mailboxRole, mimeType, className }: Pick<PluginActionsProps, 'surface' | 'context' | 'mailboxRole' | 'mimeType' | 'className'>) {
+function PluginActionsOverflow({ surface, context, mailboxRole, mimeType, fileName, onAction, className }: Pick<PluginActionsProps, 'surface' | 'context' | 'mailboxRole' | 'mimeType' | 'fileName' | 'onAction' | 'className'>) {
   const t = useTranslations('email_viewer');
   const { contextMenu, openContextMenu, closeContextMenu, menuRef } = useContextMenu<true>();
   return (
@@ -136,6 +140,8 @@ function PluginActionsOverflow({ surface, context, mailboxRole, mimeType, classN
           context={context}
           mailboxRole={mailboxRole}
           mimeType={mimeType}
+          fileName={fileName}
+          onAction={onAction}
           onRan={closeContextMenu}
         />
       </ContextMenu>
