@@ -40,7 +40,8 @@ function resultOf(response: { methodResponses?: unknown[][] }, method: string, i
   return row[1] as Record<string, unknown>;
 }
 
-/** One server query page, never a return-all scan or a successful partial /get. */
+/** Reads one bounded server page and translates the public root selector at the wire boundary.
+ * 공개 루트 선택자를 전송 경계에서 변환하고 전체 스캔 없이 서버 페이지 하나를 읽습니다. */
 export async function queryReadPage<C extends ReadCollection>(
   query: ReadPageRequest<C>,
   accountId: string,
@@ -50,8 +51,13 @@ export async function queryReadPage<C extends ReadCollection>(
 ): Promise<ReadPageResult<C>> {
   const limit = Math.min(query.limit, Math.max(1, maxObjects), 100);
   const method = `${query.collection}/query`;
+  const filter = { ...query.filter };
+  if (query.collection === 'FileNode' && filter.parentId === null) {
+    delete filter.parentId;
+    filter.isTopLevel = true;
+  }
   const result = resultOf(await request([[method, {
-    ...queryOptions, accountId, filter: query.filter, position: query.position, limit, calculateTotal: true,
+    ...queryOptions, accountId, filter, position: query.position, limit, calculateTotal: true,
   }, 'read-query']]), method, 'read-query');
   if (!Number.isSafeInteger(result.total) || (result.total as number) < 0 ||
       typeof result.queryState !== 'string' || !result.queryState || result.queryState.length > 4096 ||

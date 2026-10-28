@@ -3,6 +3,7 @@ import type { IJMAPClient } from '../jmap/client-interface';
 import type { InstalledPlugin, Permission } from '../plugin-types';
 import { useAuthStore } from '@/stores/auth-store';
 import { dispatchApiCall } from '../plugin-sandbox/host-api';
+import { JMAPClient } from '../jmap/client';
 
 vi.mock('@/stores/toast-store', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() } }));
 
@@ -43,6 +44,47 @@ afterEach(() => useAuthStore.setState({ client: null }));
 type Page = { items: { id: string }[]; total: number; position: number; nextCursor: string | null; queryState: string };
 
 describe('bounded, resumable plugin queries', () => {
+  it('pages real top-level FileNodes without serializing a null native parent id, while preserving child filters', async () => {
+    const nodes = [
+      { id: 'dir-a', parentId: null, name: 'source-a', type: 'd', blobId: null, size: 0, modified: '' },
+      { id: 'dir-b', parentId: null, name: 'source-b', type: 'd', blobId: null, size: 0, modified: '' },
+      { id: 'file-a', parentId: 'dir-a', name: 'note.xml', type: 'application/xml', blobId: 'blob-a', size: 5, modified: '' },
+    ];
+    const native = new JMAPClient('https://mail.example.test', 'alice', 'test-only');
+    Object.assign(native, { apiUrl: 'https://mail.example.test/jmap/', accountId: 'a',
+      capabilities: { 'urn:ietf:params:jmap:core': { maxObjectsInGet: 100 }, 'urn:ietf:params:jmap:filenode': {} } });
+    const fetcher = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_input, init) => {
+      const body: { methodCalls: [string, Record<string, unknown>, string][] } = JSON.parse(String(init?.body));
+      const [method, args, id] = body.methodCalls[0];
+      if (method === 'FileNode/query') {
+        const filter = args.filter as { parentId?: string | null; isTopLevel?: boolean };
+        // Stalwart's ParentId is an Id, not a nullable Id; its root filter is isTopLevel.
+        if (Object.hasOwn(filter, 'parentId') && filter.parentId === null) return new Response('{}', { status: 400 });
+        const selected = nodes.filter(node => {
+          if (filter.isTopLevel === true) return node.parentId === null;
+          return node.parentId === filter.parentId;
+        });
+        const position = Number(args.position);
+        return new Response(JSON.stringify({ methodResponses: [[method, { accountId: 'a', queryState: 'file-q1', position,
+          total: selected.length, ids: selected.slice(position, position + Number(args.limit)).map(node => node.id) }, id]] }));
+      }
+      if (!Array.isArray(args.ids)) throw new Error('Fixture requires bounded FileNode/get ids');
+      const ids = args.ids;
+      return new Response(JSON.stringify({ methodResponses: [[method, { list: nodes.filter(node => ids.includes(node.id)), notFound: [] }, id]] }));
+    });
+    useAuthStore.setState({ client: native });
+    try {
+      const first = await call('files.query', { parentId: null, limit: 1 }) as Page;
+      expect(first).toMatchObject({ total: 2, position: 0, items: [{ id: 'dir-a', isDirectory: true }] });
+      const last = await call('files.query', { parentId: null, limit: 1, cursor: first.nextCursor }) as Page;
+      expect(last).toMatchObject({ total: 2, position: 1, items: [{ id: 'dir-b', isDirectory: true }], nextCursor: null });
+      const children = await call('files.query', { parentId: 'dir-a', limit: 1 }) as Page;
+      expect(children).toMatchObject({ total: 1, items: [{ id: 'file-a', isDirectory: false }], nextCursor: null });
+    } finally {
+      fetcher.mockRestore();
+    }
+  });
+
   it('returns an exact total and continues beyond the first page without duplicates', async () => {
     const first = await call('email.query', { limit: 2 }) as Page;
     expect(first.total).toBe(3);
