@@ -15,6 +15,14 @@ import type { StorageErrorCode } from '@/lib/plugin-persistent-storage';
 const NO_STORE = { 'cache-control': 'no-store' };
 const ERROR_STATUS: Record<StorageErrorCode, number> = { invalid: 400, conflict: 409, quota: 413, busy: 503, unavailable: 503 };
 
+/** Decodes host-owned identity headers without excluding international account names.
+ * 국제화 계정 이름을 배제하지 않고 호스트 소유 식별 헤더를 디코딩합니다. */
+function identityHeader(value: string | null): string | null {
+  if (!value) return null;
+  try { return decodeURIComponent(value); }
+  catch { return null; }
+}
+
 /** Uses only an authenticated cookie slot, matching the captured host client before choosing an owner.
  * 호스트가 캡처한 클라이언트와 일치하는 인증 쿠키 슬롯으로만 저장 주체를 결정합니다. */
 async function currentOwner(request: NextRequest): Promise<PluginDataOwner | null> {
@@ -25,7 +33,7 @@ async function currentOwner(request: NextRequest): Promise<PluginDataOwner | nul
   const context = readStalwartAuthContextFromStore(await cookies(), slot);
   if (!context) return null;
   const serverUrl = context.serverUrl.replace(/\/+$/, '');
-  if (request.headers.get('X-JMAP-Username') !== context.username || request.headers.get('X-JMAP-Server') !== serverUrl) return null;
+  if (identityHeader(request.headers.get('X-JMAP-Username')) !== context.username || identityHeader(request.headers.get('X-JMAP-Server')) !== serverUrl) return null;
   if (!context.accountName && context.authHeader.startsWith('Bearer ') && !context.username.includes('@')) return null;
   return { accountName: context.accountName ?? context.username, serverUrl };
 }

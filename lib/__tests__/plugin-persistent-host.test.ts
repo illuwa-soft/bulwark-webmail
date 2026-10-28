@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { dispatchApiCall } from '@/lib/plugin-sandbox/host-api';
 import { useAuthStore } from '@/stores/auth-store';
 import { useAccountStore } from '@/stores/account-store';
+import { capturePersistentStorageOwner } from '@/lib/plugin-sandbox/host-api-persistent-storage';
 import type { InstalledPlugin } from '@/lib/plugin-types';
 const send = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/browser-navigation', async (original) => ({ ...await original<typeof import('@/lib/browser-navigation')>(), apiFetch: send }));
@@ -16,6 +17,12 @@ beforeEach(() => {
 afterEach(() => { useAuthStore.setState({ client: null }); useAccountStore.setState({ activeAccountId: null, accounts: [] }); });
 
 describe('persistent sandbox bridge', () => {
+  it('rejects an old frame scope before a later account can receive a migrated value', async () => {
+    const persistentOwner = capturePersistentStorageOwner();
+    useAuthStore.setState({ client: { getUsername: () => 'alice', getServerUrl: () => 'https://mail.example.test' } as never });
+    await expect(dispatchApiCall(reader, 'storage.persistent.set', ['note', 'old account data', { expectedRevision: null }], { persistentOwner })).rejects.toThrow('accountChanged');
+    expect(send).not.toHaveBeenCalled();
+  });
   it('pins slot/package headers and refuses another namespace selector', async () => {
     await dispatchApiCall(reader, 'storage.persistent.get', ['note']);
     expect(send).toHaveBeenCalledWith('/api/plugin-storage', expect.objectContaining({ headers: expect.objectContaining({ 'X-JMAP-Cookie-Slot': '2', 'X-Bulwark-Plugin-Id': 'notes', 'X-Bulwark-Plugin-Fingerprint': fingerprint }), body: JSON.stringify({ operation: 'get', key: 'note' }) }));

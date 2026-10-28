@@ -48,6 +48,10 @@ sandbox error channel transports messages: `invalid`, `conflict`, `quota`,
   disabled, denied, or different package cannot open a namespace.
 - The generic `api.http.post` facade denies this route, including encoded aliases.
   The sandbox rechecks the captured client/account after asynchronous work.
+- A sandbox frame is pinned to its authenticated native client. Switching or
+  reconnecting an account invalidates that frame's storage calls; reopening the
+  frame binds the new session. This also stops an automatic local-data migration
+  from writing the old account's values into a newly active account.
 - This is a Full-server capability. Installing a package on the server or having
   its exact package approved is required; an unregistered development/user bundle
   is not automatically assigned a server namespace.

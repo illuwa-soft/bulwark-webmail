@@ -6,19 +6,35 @@ import { persistentRequest, PERSISTENT_READ_PERMISSION, PERSISTENT_WRITE_PERMISS
 import type { StorageOperation } from '@/lib/plugin-persistent-storage';
 import { pluginHasPermission } from './permissions';
 
-/** Captures the native account slot and package; plugin code supplies neither selector.
- * 플러그인 코드가 선택자를 전달하지 않도록 네이티브 계정 슬롯·패키지를 캡처합니다. */
-export async function doPersistentStorage(plugin: InstalledPlugin, operation: StorageOperation, key: unknown, value: unknown, options: unknown) {
-  let permission: Permission = PERSISTENT_READ_PERMISSION;
-  if (operation === 'set' || operation === 'remove') permission = PERSISTENT_WRITE_PERMISSION;
+export type PersistentStorageOwner = {
+  accountId: string;
+  cookieSlot: number;
+  client: NonNullable<ReturnType<typeof useAuthStore.getState>['client']>;
+  username: string;
+  serverUrl: string;
+};
+
+/** Pins a frame's account before a read-modify-write workflow can span account changes.
+ * 읽기·수정·쓰기 작업 중 계정이 바뀌지 않도록 프레임의 계정을 고정합니다. */
+export function capturePersistentStorageOwner(): PersistentStorageOwner {
   const account = useAccountStore.getState().getActiveAccount();
   const client = useAuthStore.getState().client;
+  if (!account || !client || account.username !== client.getUsername() || account.serverUrl.replace(/\/+$/, '') !== client.getServerUrl().replace(/\/+$/, '')) throw new Error('storage.persistent.unauthenticated');
+  return { accountId: account.id, cookieSlot: account.cookieSlot, client, username: client.getUsername(), serverUrl: client.getServerUrl() };
+}
+
+/** Captures the native account slot and package; plugin code supplies neither selector.
+ * 플러그인 코드가 선택자를 전달하지 않도록 네이티브 계정 슬롯·패키지를 캡처합니다. */
+export async function doPersistentStorage(plugin: InstalledPlugin, operation: StorageOperation, key: unknown, value: unknown, options: unknown, owner = capturePersistentStorageOwner()) {
+  let permission: Permission = PERSISTENT_READ_PERMISSION;
+  if (operation === 'set' || operation === 'remove') permission = PERSISTENT_WRITE_PERMISSION;
+  const client = owner.client;
   let fingerprint = plugin.approvalHash;
   if (plugin.managed) fingerprint = plugin.bundleHash;
-  if (!account || !client || !fingerprint || account.username !== client.getUsername() || account.serverUrl.replace(/\/+$/, '') !== client.getServerUrl().replace(/\/+$/, '')) throw new Error('storage.persistent.unauthenticated');
-  const identity = JSON.stringify([client.getUsername(), client.getServerUrl()]);
+  if (!fingerprint) throw new Error('storage.persistent.unauthenticated');
   const check = () => {
-    if (useAuthStore.getState().client !== client || useAccountStore.getState().activeAccountId !== account.id || JSON.stringify([client.getUsername(), client.getServerUrl()]) !== identity) throw new Error('storage.persistent.accountChanged');
+    const active = useAccountStore.getState().getActiveAccount();
+    if (useAuthStore.getState().client !== client || active?.id !== owner.accountId || active.cookieSlot !== owner.cookieSlot || client.getUsername() !== owner.username || client.getServerUrl() !== owner.serverUrl) throw new Error('storage.persistent.accountChanged');
     if (!pluginHasPermission(plugin, permission)) throw new Error('storage.persistent.forbidden');
   };
   check();
@@ -36,9 +52,9 @@ export async function doPersistentStorage(plugin: InstalledPlugin, operation: St
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-JMAP-Cookie-Slot': String(account.cookieSlot),
-      'X-JMAP-Username': client.getUsername(),
-      'X-JMAP-Server': client.getServerUrl().replace(/\/+$/, ''),
+      'X-JMAP-Cookie-Slot': String(owner.cookieSlot),
+      'X-JMAP-Username': encodeURIComponent(owner.username),
+      'X-JMAP-Server': encodeURIComponent(owner.serverUrl.replace(/\/+$/, '')),
       'X-Bulwark-Plugin-Id': plugin.id,
       'X-Bulwark-Plugin-Fingerprint': fingerprint,
     },

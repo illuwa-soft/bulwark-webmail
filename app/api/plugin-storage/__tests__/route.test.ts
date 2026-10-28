@@ -52,6 +52,10 @@ beforeEach(async () => {
 afterEach(async () => { vi.unstubAllEnvs(); await rm(directory, { recursive: true, force: true }); });
 
 describe('authenticated durable storage route', () => {
+  it('supports international account names through encoded host identity headers', async () => {
+    state.jar.clear(); signIn('사용자@example.test', 2, '사용자');
+    expect((await request({ operation: 'keys' }, { 'X-JMAP-Username': encodeURIComponent('사용자'), 'X-JMAP-Server': encodeURIComponent('https://mail.example.test') })).status).toBe(200);
+  });
   it('keeps state through sign-out and re-login while isolating canonical accounts in the same slot', async () => {
     const saved = await request({ operation: 'set', key: 'tag', value: 'kept', expectedRevision: null });
     expect(saved.status).toBe(200);
