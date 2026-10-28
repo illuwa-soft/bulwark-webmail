@@ -79,6 +79,7 @@ describe('provider-neutral embedded views', () => {
     controller.handle(scope, { action: 'reply', id: opened.id, requestId: event.requestId, allow: false });
     expect(await first).toBe(false);
     expect(controller.store.getState().view).not.toBeNull();
+    expect(controller.store.getState().leaveFailed).toBe(false);
     const second = controller.leave('navigation');
     const request = await controller.handle(scope, { action: 'next', id: opened.id });
     if (request?.type !== 'leave') throw new Error('leave event missing');
