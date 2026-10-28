@@ -5,6 +5,15 @@ import { findFileEditor, registerFileEditorHost, closeFileEditor } from '@/lib/p
 afterEach(resetActions);
 
 describe('native file editor declarations', () => {
+  it('accepts an unrelated vector reader independently of Office format support', () => {
+    setPluginActions('vector', 'Vector reader', 'file-open-actions', checkActions([
+      { id: 'view', label: 'View vector', fileExtensions: ['ai', 'svg'] }
+    ]));
+    expect(findFileEditor('artwork.AI', false)?.pluginId).toBe('vector');
+    expect(findFileEditor('diagram.svg', false)?.pluginId).toBe('vector');
+    expect(findFileEditor('budget.xlsx', false)).toBeNull();
+  });
+
   it('allows closing only from the exact live provider subtree and still awaits the host guard', async () => {
     const root = document.createElement('div');
     const container = document.createElement('div');

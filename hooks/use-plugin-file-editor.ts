@@ -47,11 +47,10 @@ export function usePluginFileEditor(ownerId: string | null) {
     return true;
   }, [actions, ownerId]);
 
-  /** Restores the same listing and reloads native size/mtime after the leave receipt.
-   * 이탈 확인 후 같은 목록으로 돌아가 네이티브 크기·수정일을 다시 읽습니다. */
-  const close = useCallback(async () => {
+  /** Dismisses the selected view; the provider owns any content or metadata reconciliation.
+   * 선택 화면만 닫고 내용·메타데이터 재확인은 제공자에게 맡깁니다. */
+  const close = useCallback(() => {
     setSelected(null);
-    await useFileStore.getState().refresh();
   }, []);
 
   let target = selected;
