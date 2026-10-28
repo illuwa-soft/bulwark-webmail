@@ -4412,6 +4412,7 @@
         "title": "Afegir pàgines",
         "body": "Afegir pàgines pròpies a l'aplicació, cadascuna amb un botó a la barra de navegació."
       },
+      "ui_embedded_view": { "title": "Open external views inside the app", "body": "Display approved external pages inside {appName}, exchange messages and wait for the plugin before leaving. External pages remain separate from your mail session.", "force_close": "Close this view without waiting? Its work may not be saved.", "close_failed": "The plugin did not finish closing. You can keep working or close the view without waiting." },
       "http_proxy": {
         "title": "Fer servir els comptes que connecteu",
         "body": "Enviar peticions a través del servidor de {appName} amb un compte o una clau que heu configurat vós o el vostre administrador. El connector no veu mai la contrasenya, però pot fer tot el que aquest compte pot fer al seu propi servidor."

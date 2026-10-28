@@ -4412,6 +4412,7 @@
         "title": "Хуудас нэмэх",
         "body": "Аппад өөрийн хуудсуудыг нэмэх, тус бүр навигацын мөрөнд товчтой."
       },
+      "ui_embedded_view": { "title": "Open external views inside the app", "body": "Display approved external pages inside {appName}, exchange messages and wait for the plugin before leaving. External pages remain separate from your mail session.", "force_close": "Close this view without waiting? Its work may not be saved.", "close_failed": "The plugin did not finish closing. You can keep working or close the view without waiting." },
       "http_proxy": {
         "title": "Таны холбосон бүртгэлүүдийг ашиглах",
         "body": "Таны эсвэл администраторын тохируулсан бүртгэл эсвэл түлхүүрээр {appName}-ийн серверээр дамжуулан хүсэлт илгээх. Залгаас нууц үгийг хэзээ ч харахгүй, гэхдээ тухайн бүртгэлийн өөрийн сервер дээр хийж чадах бүх зүйлийг хийж чадна."
