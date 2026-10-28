@@ -1,5 +1,16 @@
 # Read-only plugin query pages (fork extension)
 
+## File preview bytes
+
+`api.files.readContent(fileId)` requires `files:read` and returns
+`{ id, name, type, size, data: ArrayBuffer }` for one regular primary-account
+FileNode. The host chooses its blob and owning files account; plugins never
+receive credentials, download URLs or blob IDs. Cross-account selectors and
+directories are refused. Metadata and actual content both obey the existing
+25 MiB IPC response cap; larger files fail explicitly. A session switch or
+permission revocation during the read discards the result. `files.readText`
+retains its separate 64 KiB UTF-8 prefix contract.
+
 This fork adds bounded queries for large mail, contact, calendar and file collections.
 They use the current login's existing JMAP client in Full and Lite. No access token,
 arbitrary JMAP request, write method, server credential or new dependency is exposed.

@@ -55,7 +55,7 @@ import {
 import { MAX_PLUGIN_FETCH_BYTES, readFileName, readMediaType, sessionClient } from './host-api-input';
 import { doComposeOpen, doComposeReply, doDraftsCreate, doEmailSend } from './host-api-compose';
 import { doFilesCreate, doFilesUpdate, doFilesRemove } from './host-api-files';
-import { doFilesGet } from './host-api-files';
+import { doFilesGet, doFilesReadContent } from './host-api-files';
 import { currentMutationScope, applyScopedMutation } from './host-api-scoped';
 import { doEmailGetPrimary, doEmailUpdate } from './host-api-mail';
 import { doNotificationsShow } from './host-api-notify';
@@ -114,6 +114,7 @@ export const PERM_PER_METHOD: Readonly<Record<string, Permission | null>> = {
   'contact.query': 'contacts:read',
   'files.query': 'files:read',
   'files.readText': 'files:read',
+  'files.readContent': 'files:read',
   'files.createText': 'files:write',
   'files.createDirectory': 'files:write',
   'files.update': 'files:write',
@@ -1898,6 +1899,7 @@ export async function dispatchApiCall(
     case 'contact.query':
     case 'files.query': return doReadPage(plugin, method, args[0]);
     case 'files.readText': return doFilesReadText(plugin, args[0], args[1]);
+    case 'files.readContent': return doFilesReadContent(plugin, args[0]);
     case 'mutations.scope': return currentMutationScope(plugin);
     case 'mutations.apply': return applyScopedMutation(plugin, args[0], args[1], args[2], (method, inner) => dispatchApiCall(plugin, method, inner));
     case 'email.getPrimary': return doEmailGetPrimary(plugin, args[0]);

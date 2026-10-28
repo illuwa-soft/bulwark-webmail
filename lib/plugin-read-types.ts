@@ -44,6 +44,14 @@ export interface FileText {
   text: string;
   truncated: boolean;
 }
+/** Bounded bytes selected by a FileNode, never by an arbitrary blob id. */
+export interface FileContent {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  data: ArrayBuffer;
+}
 export type EmailQueryPage = PluginReadPage<EmailSummary>;
 export type ContactQueryPage = PluginReadPage<ContactView>;
 /** Stored series/standalone records, NOT expanded recurrence occurrences. */
