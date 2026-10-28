@@ -4410,6 +4410,7 @@
         "title": "افزودن صفحه",
         "body": "افزودن صفحه‌های خودش به برنامه، هر کدام با یک دکمه در نوار ناوبری."
       },
+      "ui_embedded_view": { "title": "Open external views inside the app", "body": "Display approved external pages inside {appName}, exchange messages and wait for the plugin before leaving. External pages remain separate from your mail session.", "force_close": "Close this view without waiting? Its work may not be saved.", "close_failed": "The plugin did not finish closing. You can keep working or close the view without waiting." },
       "http_proxy": {
         "title": "استفاده از حساب‌هایی که متصل می‌کنید",
         "body": "ارسال درخواست از طریق سرور {appName} با حساب یا کلیدی که شما یا مدیرتان راه‌اندازی کرده‌اید. افزونه هرگز گذرواژه را نمی‌بیند، اما می‌تواند هر کاری را که آن حساب روی سرور خودش می‌تواند انجام دهد، انجام دهد."

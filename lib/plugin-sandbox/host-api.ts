@@ -63,6 +63,8 @@ import { setSectionTitle } from './section-titles';
 import { requestPanel } from './panel-requests';
 import { doComposerAttach, doComposerGetBody, doComposerGetSelection, doComposerGetSnapshot, doComposerReadAttachment, doComposerReplaceBody, doComposerReplaceSelection } from './host-api-composer';
 import { doReadPage, doFilesReadText } from './host-api-read-pages';
+import { readEmbeddedCommand, type EmbeddedViewOwner } from '../plugin-embedded/contracts';
+import { requestEmbeddedView } from '../plugin-embedded/requests';
 
 /**
  * Methods only callable from the privileged (same-origin) tier. These expose
@@ -243,6 +245,7 @@ export const PERM_PER_METHOD: Readonly<Record<string, Permission | null>> = {
   'ui.refreshRowBadges': null,
   'ui.setDayLabels': 'ui:calendar-action',
   'ui.setPages': 'ui:app-page',
+  'ui.embeddedView': 'ui:embedded-view',
   'ui.setSectionTitle': 'ui:sidebar-widget',
   // Open, close or toggle the panel the plugin's slot sits in; the panel's
   // own permission is checked per call (see the slot catalogue).
@@ -1859,7 +1862,7 @@ export async function dispatchApiCall(
   plugin: InstalledPlugin,
   method: string,
   args: unknown[],
-  opts?: { privileged?: boolean; sink?: StreamSink },
+  opts?: { privileged?: boolean; sink?: StreamSink; embeddedOwner?: EmbeddedViewOwner },
 ): Promise<unknown> {
   // Tier gate: privileged-only methods are refused for untrusted (null-origin)
   // instances even if the permission is somehow present. Defence-in-depth on
@@ -1879,6 +1882,17 @@ export async function dispatchApiCall(
   }
 
   switch (method) {
+    case 'ui.embeddedView': {
+      if (IS_LITE) throw new Error('Embedded views require the full app');
+      if (!pluginHasPermission(plugin, 'ui:app-page')) throw new Error('Embedded views require the app-page permission');
+      const scope = opts?.embeddedOwner;
+      if (!scope || scope.slot !== 'app-page' || scope.signal.aborted) throw new Error('Embedded views require a live app-page instance');
+      return requestEmbeddedView(plugin.id, scope, readEmbeddedCommand(args[0]), {
+        hostOrigin: window.location.origin,
+        frameOrigins: plugin.frameOrigins ?? [],
+        framePaths: plugin.framePaths ?? [],
+      });
+    }
     case 'email.query':
     case 'calendar.queryEvents':
     case 'contact.query':

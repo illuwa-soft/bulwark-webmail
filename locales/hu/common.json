@@ -4410,6 +4410,7 @@
         "title": "Saját oldalak",
         "body": "Saját oldalakat ad az alkalmazáshoz, mindegyiket egy gombbal a navigációs sávon."
       },
+      "ui_embedded_view": { "title": "Open external views inside the app", "body": "Display approved external pages inside {appName}, exchange messages and wait for the plugin before leaving. External pages remain separate from your mail session.", "force_close": "Close this view without waiting? Its work may not be saved.", "close_failed": "The plugin did not finish closing. You can keep working or close the view without waiting." },
       "http_proxy": {
         "title": "Az általad csatlakoztatott fiókok használata",
         "body": "Kéréseket küld a(z) {appName} szerverén keresztül egy olyan fiókkal vagy kulccsal, amelyet te vagy a rendszergazdád állított be. A bővítmény soha nem látja a jelszót, de bármit megtehet, amit az a fiók a saját szerverén megtehet."
