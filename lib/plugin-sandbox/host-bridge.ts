@@ -466,7 +466,7 @@ export class SandboxInstance {
         void (async () => {
           try {
             if (!IS_LITE && method.startsWith('storage.persistent.') && !this.persistentOwner) this.persistentOwner = capturePersistentStorageOwner();
-            const result = await dispatchApiCall(this.plugin, method, args ?? [], { privileged: this.privileged, sink: this, embeddedOwner: this.embeddedOwner, persistentOwner: this.persistentOwner });
+            const result = await dispatchApiCall(this.plugin, method, args ?? [], { privileged: this.privileged, sink: this, embeddedOwner: this.embeddedOwner, persistentOwner: this.persistentOwner, toastSignal: this.embeddedAbort.signal });
             this.send({ type: 'api-response', id, ok: true, result });
           } catch (err) {
             this.send({ type: 'api-response', id, ok: false, error: (err as Error).message ?? String(err) });
