@@ -1090,6 +1090,8 @@ async function bootBackground(payload: BackgroundInit): Promise<void> {
   sendToHost({ type: 'init-done', hooks: hookNames, slots: slotInfo, shortcuts: shortcutInfo });
 }
 
+/** Mount the surface without background activation and bind editor calls to its local hook.
+ * 백그라운드를 활성화하지 않고 표면을 마운트하며 편집 호출을 로컬 훅에 결합합니다. */
 function bootSlot(payload: SlotInit): void {
   // Replay the host theme before first paint so the slot never flashes the UA
   // default serif font or a light-on-light/dark mismatch.
@@ -1107,6 +1109,14 @@ function bootSlot(payload: SlotInit): void {
 
   const rootEl = document.getElementById('plugin-sandbox-root');
   if (!rootEl) throw new Error('Sandbox root element missing');
+
+  // File editor controls invoke this frame's hook, never the background's activation or hooks.
+  // 파일 편집 컨트롤은 백그라운드 활성화·훅 대신 현재 프레임의 훅만 호출합니다.
+  const slotHooks: string[] = [];
+  if (payload.slot === 'file-editor' && typeof exports.hooks?.onAction === 'function') {
+    hookHandlers.onAction = exports.hooks.onAction;
+    slotHooks.push('onAction');
+  }
 
   let currentProps = decodeCallbacks(payload.extraProps) as Record<string, unknown>;
   const Component = slotDef.component;
@@ -1183,7 +1193,7 @@ function bootSlot(payload: SlotInit): void {
 
   const reactRoot = ReactDOM.createRoot(rootEl);
   reactRoot.render(React.createElement(SlotShell));
-  sendToHost({ type: 'init-done', hooks: [], slots: [], shortcuts: [] });
+  sendToHost({ type: 'init-done', hooks: slotHooks, slots: [], shortcuts: [] });
 }
 
 // Populated by bootSlot - receives `props-update` messages.
