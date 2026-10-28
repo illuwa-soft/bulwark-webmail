@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import {
   Upload, FolderPlus, Download, Trash2, Pencil, Copy, Clipboard, Scissors, Info,
@@ -49,6 +49,8 @@ export interface AccountFolderEntry {
 }
 
 interface FileBrowserProps {
+  /** An editor occupies only the listing pane; the explorer and its toolbar remain native. */
+  workspace?: { id: string; fileId: string; content: ReactNode; actions: ReactNode };
   currentPath: string;
   resources: FileResource[];
   isLoading: boolean;
@@ -56,7 +58,7 @@ interface FileBrowserProps {
   selectedResources: Set<string>;
   uploadProgress: { name: string; loaded: number; total: number; current: number; totalFiles: number } | null;
   clipboard: ClipboardState | null;
-  onNavigate: (path: string, resourceId?: string | null) => void;
+  onNavigate: (path: string, resourceId?: string | null) => void | Promise<boolean>;
   onCreateFolder: (name: string) => Promise<void>;
   onUploadFiles: (files: File[]) => Promise<void>;
   onUploadFolder: (files: File[]) => Promise<void>;
@@ -126,6 +128,7 @@ function isTypingTarget(target: EventTarget | null): boolean {
 }
 
 export function FileBrowser({
+  workspace,
   currentPath,
   resources,
   isLoading,
@@ -189,6 +192,7 @@ export function FileBrowser({
   const sharedRoots = useFileStore((s) => s.sharedRoots);
   const loadSharedRoots = useFileStore((s) => s.loadSharedRoots);
   const allFolders = useFileStore((s) => s.allFolders);
+  const allFiles = useFileStore((s) => s.allFiles);
   const hasListed = useFileStore((s) => s.hasListed);
   const currentParentId = useFileStore((s) => s.currentParentId);
   const pathStack = useFileStore((s) => s.pathStack);
@@ -637,6 +641,7 @@ export function FileBrowser({
   }, [focusedName]);
 
   useEffect(() => {
+    if (workspace) return;
     const handler = (e: KeyboardEvent) => {
       if (isTypingTarget(e.target)) return;
       if (showNewFolder || showNewTextFile || renameTarget || renameFolder || shareTargetId) return;
@@ -722,7 +727,7 @@ export function FileBrowser({
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [
-    showNewFolder, showNewTextFile, renameTarget, renameFolder, shareTargetId, accountPickerMode, selectedList, singleSelected,
+    workspace, showNewFolder, showNewTextFile, renameTarget, renameFolder, shareTargetId, accountPickerMode, selectedList, singleSelected,
     selectAllVisible, onCopy, onCut, onPaste, clipboard, searchQuery, onClearSelection, deleteNames, openResource,
     focusedName, onToggleSelect, currentPath, navigateUp, viewMode, gridColumns, moveFocus,
   ]);
@@ -846,8 +851,8 @@ export function FileBrowser({
   }, [sortKey]);
 
   // A sidebar entry's "New folder" / "Upload" acts on that folder: open it first.
-  const createIn = useCallback((path: string, id: string | null, kind: CreateKind) => {
-    if (id !== currentParentId) onNavigate(path, id);
+  const createIn = useCallback(async (path: string, id: string | null, kind: CreateKind) => {
+    if (id !== currentParentId && await onNavigate(path, id) === false) return;
     if (kind === "folder") setShowNewFolder(true);
     else if (kind === "text") setShowNewTextFile(true);
     else if (kind === "files") fileInputRef.current?.click();
@@ -860,12 +865,15 @@ export function FileBrowser({
       currentParentId={currentParentId}
       currentPath={currentPath}
       allFolders={allFolders}
+      allFiles={allFiles}
+      activeFileId={workspace?.fileId}
+      creationContext={canCreate && ownAccountId && { parentId: currentParentId, accountId: ownAccountId, path: currentPath } || undefined}
       sharedRoots={sharedRoots}
       favorites={favorites}
       recentFiles={recentFiles}
       canCreate={canCreate}
       onNavigate={onNavigate}
-      onOpenRecent={onOpenRecent}
+      onOpenRecent={(id) => { setNarrowSidebarOpen(false); onOpenRecent(id); }}
       onUploadFiles={() => fileInputRef.current?.click()}
       onUploadFolder={() => folderInputRef.current?.click()}
       onNewFolder={() => setShowNewFolder(true)}
@@ -1022,6 +1030,7 @@ export function FileBrowser({
             !narrowSidebarOpen && "-translate-x-full rtl:translate-x-full",
           )}
           aria-hidden={!narrowSidebarOpen}
+          inert={!narrowSidebarOpen}
         >
           {sidebar}
         </div>
@@ -1071,6 +1080,7 @@ export function FileBrowser({
           compact={isMobile}
           toolsHidden={accountPickerMode}
           selection={selectionActions}
+          workspaceActions={workspace?.actions}
         />
 
         {error && (
@@ -1085,7 +1095,8 @@ export function FileBrowser({
         )}
 
         <div className="relative flex flex-1 min-h-0">
-          <div
+          {workspace && <div data-file-workspace={workspace.id} className={cn('flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden', isResizing && 'pointer-events-none')}>{workspace.content}</div>}
+          {!workspace && <div
             ref={scrollAreaRef}
             className="relative flex-1 min-w-0 overflow-y-auto"
             onMouseDown={handleMarqueeMouseDown}
@@ -1117,9 +1128,9 @@ export function FileBrowser({
                 }}
               />
             )}
-          </div>
+          </div>}
 
-          {isDraggingFiles && (
+          {!workspace && isDraggingFiles && (
             <div className="absolute inset-2 z-30 rounded-xl border-2 border-dashed border-primary bg-primary/5 flex items-center justify-center pointer-events-none">
               <div className="text-center bg-background/90 rounded-lg px-5 py-4 shadow-sm">
                 <Upload className="w-8 h-8 text-primary mx-auto mb-2" />
@@ -1128,9 +1139,9 @@ export function FileBrowser({
             </div>
           )}
 
-          {detailsPanel}
+          {!workspace && detailsPanel}
 
-          {isNarrow && canCreate && !selectionActions && (
+          {!workspace && isNarrow && canCreate && !selectionActions && (
             <Button
               size="icon"
               className="absolute bottom-4 end-4 z-20 h-12 w-12 rounded-full shadow-lg"

@@ -1,5 +1,10 @@
 /** The caller identity is created by the host bridge, never supplied by plugin code. */
-export type EmbeddedViewOwner = { slot: string | null; signal: AbortSignal; container: Element };
+export type EmbeddedViewOwner = {
+  slot: string | null;
+  signal: AbortSignal;
+  container: Element;
+  invokeAction?(surface: string, actionId: string, context: Record<string, unknown>): Promise<void>;
+};
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 export type LeaveReason = 'navigation' | 'account-switch' | 'logout' | 'close';
 export type EmbeddedViewCommand =

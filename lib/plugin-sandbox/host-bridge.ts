@@ -22,6 +22,7 @@ import { getEffectiveTimeZone } from '../timezone';
 import { getEffectiveLocale } from '@/i18n/detect-locale';
 import { useSettingsStore, type DateLocale } from '@/stores/settings-store';
 import type { EmbeddedViewOwner } from '../plugin-embedded/contracts';
+import { slotPropsFor } from './permissions';
 import type {
   SandboxToHost, HostToSandbox, InitMsg, InitPayload, StreamChunkMsg, StreamEndMsg, StreamProgressMsg,
   FloatingDropdownOpenMsg, FloatingDropdownUpdateMsg, FloatingDropdownCloseMsg,
@@ -319,7 +320,18 @@ export class SandboxInstance {
       try { this.persistentOwner = capturePersistentStorageOwner(); } catch { /* not signed in yet */ }
     }
     this.mode = initPayload.mode;
-    this.embeddedOwner = { slot: initPayload.mode === 'slot' ? initPayload.slot : null, signal: this.embeddedAbort.signal, container: hostContainer };
+    this.embeddedOwner = {
+      slot: initPayload.mode === 'slot' && initPayload.slot || null,
+      signal: this.embeddedAbort.signal,
+      container: hostContainer,
+      invokeAction: async (surface, actionId, context) => {
+        if (this.destroyed || surface !== 'file-editor-actions' || initPayload.mode !== 'slot' || initPayload.slot !== 'file-editor') {
+          throw new Error('The file editor action owner changed');
+        }
+        const visible = slotPropsFor(this.plugin, 'file-editor-actions', context);
+        await this.invokeHook('onAction', [{ surface, actionId, context: visible }]);
+      },
+    };
     this.privileged = initPayload.tier === 'privileged';
     this.inline = initPayload.mode === 'slot' && isInlineSlot(initPayload.slot);
 

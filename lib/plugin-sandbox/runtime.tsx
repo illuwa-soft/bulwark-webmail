@@ -611,7 +611,7 @@ function buildPluginApi(manifest: PluginManifest) {
        * palette, ...). Replaces what this plugin set there before; [] removes
        * them. Clicks arrive in the `onAction({ surface, actionId, context })` hook.
        */
-      setActions: (surface: string, actions: Array<{ id: string; label: string; icon?: string; order?: number; mailboxRoles?: string[]; mimeTypes?: string[]; fileExtensions?: string[]; danger?: boolean }>) =>
+      setActions: (surface: string, actions: Array<{ id: string; label: string; icon?: string; order?: number; mailboxRoles?: string[]; mimeTypes?: string[]; fileExtensions?: string[]; danger?: boolean; disabled?: boolean }>) =>
         callApi('ui.setActions', [surface, actions]) as Promise<void>,
       /**
        * Ask every visible message row for its onEmailListItemRender badges
