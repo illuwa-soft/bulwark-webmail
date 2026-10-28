@@ -8,7 +8,7 @@ import { IS_LITE } from '../lite';
 import { doAppGetSettings, doAppSearchSettings } from './host-api-app';
 import { mayOfferSlot, pluginHasPermission } from './permissions';
 import { proxyAccounts, proxyCancel, proxyConnect, proxyDisconnect, proxyFetch, type StreamSink } from './proxy-client';
-import { checkActions, isActionSurface, setPluginActions } from './actions';
+import { checkActions, isActionSurface, setPluginActions, setFileEditorActions } from './actions';
 import { checkDayLabels, setDayLabels } from './day-labels';
 import { refreshRowBadges } from './row-badges';
 import { checkPages, setPluginPages } from './pages';
@@ -1939,6 +1939,10 @@ export async function dispatchApiCall(
       if (!mayOfferSlot(plugin, surface)) throw new Error(`Plugin "${plugin.id}" may not add actions to "${surface}"`);
       const actions = checkActions(args[1]);
       if (surface === 'file-open-actions' && actions.some((action) => !action.fileExtensions?.length)) throw new Error('File editors require explicit fileExtensions');
+      if (surface === 'file-editor-actions') {
+        setFileEditorActions(plugin.id, plugin.name, actions, opts?.embeddedOwner);
+        return undefined;
+      }
       setPluginActions(plugin.id, plugin.name, surface, actions);
       return undefined;
     }

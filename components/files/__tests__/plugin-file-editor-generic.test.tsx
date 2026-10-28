@@ -1,7 +1,8 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react';
 import { usePluginFileEditor } from '@/hooks/use-plugin-file-editor';
-import { PluginFileEditor } from '@/components/files/plugin-file-editor';
+import { PluginFileEditor, PluginFileEditorControls, type FileEditorHandle } from '@/components/files/plugin-file-editor';
+import { createRef } from 'react';
 import { resetActions, setPluginActions } from '@/lib/plugin-sandbox/actions';
 import { useFileStore, type FileResource } from '@/stores/file-store';
 
@@ -20,6 +21,21 @@ afterEach(() => {
 });
 
 describe('provider-neutral file workspaces', () => {
+  it('blocks navigation on a denied leave and ignores a concurrent transition', async () => {
+    useFileStore.setState({ client: null, resources: [notes] });
+    setPluginActions('reader', 'Reader', 'file-open-actions', [{ id: 'read', label: 'Read', fileExtensions: ['md'] }]);
+    let release!: (allowed: boolean) => void;
+    const leaving = new Promise<boolean>(resolve => { release = resolve; });
+    const changed = vi.fn();
+    const { result } = renderHook(() => usePluginFileEditor('login-a', () => leaving));
+    act(() => { result.current.open(notes.name); });
+    let first!: Promise<boolean>;
+    act(() => { first = result.current.runAfterLeave(changed); });
+    expect(await result.current.runAfterLeave(changed)).toBe(false);
+    await act(async () => { release(false); expect(await first).toBe(false); });
+    expect(changed).not.toHaveBeenCalled();
+    expect(result.current.target?.file.id).toBe(notes.id);
+  });
   it('hosts a Markdown reader and a CAD workspace without assuming a native mutation on close', async () => {
     let reads = 0;
     useFileStore.setState({ client: null, resources: [notes, drawing], refresh: async () => { reads++; } });
@@ -55,7 +71,11 @@ describe('provider-neutral file workspaces', () => {
 
   it('uses a generic host close control for a non-Office provider', async () => {
     let closed = false;
-    render(<PluginFileEditor target={{ pluginId: 'reader', ownerId: 'login-a', accountId: 'native-account', file: { id: 'note', name: notes.name, type: 'file', size: 128, mimeType: 'text/markdown', path: '/', modified: notes.lastModified } }} onClose={async () => { closed = true; }} />);
+    const target = { instanceId: 'workspace', resourceId: notes.id, pluginId: 'reader', ownerId: 'login-a', accountId: 'native-account', file: { id: 'note', name: notes.name, type: 'file' as const, size: 128, mimeType: 'text/markdown', path: '/', modified: notes.lastModified } };
+    const ref = createRef<FileEditorHandle>();
+    render(<><PluginFileEditorControls target={target} onClose={() => ref.current!.requestClose()} /><PluginFileEditor ref={ref} target={target} onClose={() => { closed = true; }} /></>);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('region', { name: notes.name })).toBeInTheDocument();
     const close = screen.getByRole('button', { name: /^close$/ });
     await act(async () => { fireEvent.click(close); });
     expect(closed).toBe(true);

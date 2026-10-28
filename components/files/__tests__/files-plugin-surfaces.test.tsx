@@ -10,6 +10,7 @@ import { clearSlotOffers, framePropsOf, offerSlots } from '@/components/plugins/
 import type { IJMAPClient } from '@/lib/jmap/client-interface';
 import type { FileResourceView } from '@/lib/plugin-types';
 import { findFileEditor } from '@/lib/plugin-sandbox/file-editors';
+import type { ReactNode } from 'react';
 
 // Plugin surfaces in Files: entries in an item's menu and buttons in the
 // selection toolbar (file-actions), and a section in the previews and the
@@ -22,6 +23,7 @@ const device = vi.hoisted(() => ({ isMobile: false }));
 vi.mock('@/hooks/use-media-query', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/hooks/use-media-query')>()),
   useIsMobile: () => device.isMobile,
+  useIsDesktop: () => !device.isMobile,
 }));
 
 const folder = {
@@ -41,11 +43,11 @@ const notesView: FileResourceView = {
   id: 'f-notes', name: 'notes.txt', type: 'file', size: 10, mimeType: 'text/plain', path: '/', modified: '2026-10-01T00:00:00Z',
 };
 
-function renderBrowser(selected: string[] = [], edit = vi.fn(), listed: FileResource[] = [folder, notes, photo]) {
+function renderBrowser(selected: string[] = [], edit = vi.fn(), listed: FileResource[] = [folder, notes, photo], workspace?: { id: string; fileId: string; content: ReactNode; actions: ReactNode }) {
   const client = { listAllFileNodesAcrossAccounts: vi.fn(async () => []) } as unknown as IJMAPClient;
   act(() => {
     useFileStore.setState({
-      client, resources: listed, sharedRoots: [], allFolders: [folder], currentParentId: null, pathStack: [{ id: null, name: '' }], hasListed: true,
+      client, resources: listed, sharedRoots: [], allFolders: [folder], allFiles: listed.filter(item => !item.isDirectory), currentParentId: null, pathStack: [{ id: null, name: '' }], hasListed: true,
     });
   });
   const noop = vi.fn(async () => {});
@@ -94,6 +96,7 @@ function renderBrowser(selected: string[] = [], edit = vi.fn(), listed: FileReso
       onRemoveRecent={vi.fn()}
       client={client}
       ownAccountId="a"
+      workspace={workspace}
     />,
   );
 }
@@ -116,10 +119,26 @@ afterEach(() => {
   clearSlotOffers();
   resetActions();
   setActionDispatcher(null);
-  act(() => { useFileStore.setState({ client: null, sharedRoots: [], allFolders: [] }); });
+  act(() => { useFileStore.setState({ client: null, sharedRoots: [], allFolders: [], allFiles: [] }); });
 });
 
 describe('file-actions', () => {
+  it('keeps the native file tree beside an inline provider and uses only the existing toolbar', () => {
+    renderBrowser([], vi.fn(), [folder, notes], {
+      id: 'workspace', fileId: notes.id,
+      content: <article aria-label="Vector workspace">Drawing canvas</article>,
+      actions: <button>Provider save</button>,
+    });
+    const tree = screen.getByRole('navigation', { name: 'folders' });
+    expect(within(tree).getByRole('button', { name: notes.name })).toBeInTheDocument();
+    expect(within(tree).getByRole('button', { name: folder.name })).toBeInTheDocument();
+    expect(screen.getByRole('article', { name: 'Vector workspace' })).toBeInTheDocument();
+    const toolbar = screen.getByRole('toolbar', { name: 'toolbar' });
+    expect(within(toolbar).getByRole('button', { name: 'Provider save' })).toBeInTheDocument();
+    expect(screen.queryByRole('searchbox')).toBeNull();
+    expect(screen.queryByRole('grid')).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
   it('routes a file context-menu editor choice to the selected provider rather than its background hook', async () => {
     setPluginActions('office', 'Office', 'file-open-actions', [{ id: 'open', label: 'Open in Office', fileExtensions: ['txt'] }]);
     setPluginActions('other', 'Other', 'file-open-actions', [{ id: 'open', label: 'Open in Other', fileExtensions: ['txt'] }]);

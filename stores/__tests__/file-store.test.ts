@@ -111,6 +111,8 @@ describe('file-store hierarchy (issue #379)', () => {
       currentPath: '/',
       pathStack: [{ id: null, name: '' }],
       resources: [],
+      allFolders: [],
+      allFiles: [],
       selectedResources: new Set(),
       clipboard: null,
       lastAction: null,
@@ -130,6 +132,39 @@ describe('file-store hierarchy (issue #379)', () => {
     await useFileStore.getState().navigate(null);
     const names = useFileStore.getState().resources.map(r => r.name);
     expect(names).toEqual(['Stuff']);
+  });
+
+  it('derives both explorer branches and leaves from one native listing and clears them on detach', async () => {
+    const client = makeMockClient([dir('folder', 'Folder', null), file('nested', 'nested.pdf', 'folder'), file('root', 'root.txt', null)]);
+    const original = client.listAllFileNodes.bind(client);
+    let reads = 0;
+    client.listAllFileNodes = async () => { reads++; return original(); };
+    useFileStore.getState().initClient(client);
+    await useFileStore.getState().navigate('folder', 'Folder');
+    expect(useFileStore.getState().resources.map(node => node.id)).toEqual(['nested']);
+    expect(useFileStore.getState().allFolders.map(node => node.id)).toEqual(['folder']);
+    expect(useFileStore.getState().allFiles.map(node => node.id)).toEqual(['nested', 'root']);
+    expect(reads).toBe(1);
+    useFileStore.getState().clearClient();
+    expect(useFileStore.getState().allFiles).toEqual([]);
+  });
+
+  it('does not republish a previous account after its asynchronous listing completes', async () => {
+    let release!: (nodes: FileNode[]) => void;
+    const pending = new Promise<FileNode[]>(resolve => { release = resolve; });
+    const oldClient = makeMockClient();
+    oldClient.listAllFileNodes = async () => pending;
+    useFileStore.getState().initClient(oldClient, 'old-account');
+    const oldLoad = useFileStore.getState().navigate(null);
+    useFileStore.getState().clearClient();
+    const currentClient = makeMockClient([file('current', 'current.txt', null)]);
+    useFileStore.getState().initClient(currentClient, 'current-account');
+    await useFileStore.getState().navigate(null);
+    release([file('private-old', 'private-old.txt', null)]);
+    await oldLoad;
+    expect(useFileStore.getState().allFiles.map(node => node.id)).toEqual(['current']);
+    expect(useFileStore.getState().resources.map(node => node.id)).toEqual(['current']);
+    expect(useFileStore.getState().currentAccountId).toBe('current-account');
   });
 
   it('navigates into a folder via parentId and shows its direct children', async () => {

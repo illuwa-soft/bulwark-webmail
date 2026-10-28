@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import type { FileResource } from "@/stores/file-store";
 import { getFileIconByName } from "@/components/files/file-icons";
 import { anchorEvent, isInternalDrag, readDraggedNames } from "@/components/files/file-item-parts";
+import { PluginActions } from '@/components/plugins/plugin-actions';
 
 const COLLAPSED_KEY = "files-sidebar-collapsed";
 const RECENT_LIMIT = 8;
@@ -43,7 +44,7 @@ type MenuTarget =
   | { kind: "root" }
   | { kind: "folder"; folder: FileResource; path: string }
   | { kind: "favorite"; path: string }
-  | { kind: "recent"; id: string };
+  | { kind: "recent" | "file"; id: string };
 
 /** What a "new" or "upload" entry in a folder's menu creates there. */
 export type CreateKind = "folder" | "text" | "files" | "dir";
@@ -53,6 +54,9 @@ export interface FilesSidebarProps {
   currentPath: string;
   /** Every known folder; the tree is built from their parent links. */
   allFolders: FileResource[];
+  allFiles?: FileResource[];
+  activeFileId?: string;
+  creationContext?: Record<string, unknown>;
   sharedRoots: FileResource[];
   favorites: string[];
   recentFiles: { name: string; id: string; timestamp: number }[];
@@ -83,6 +87,9 @@ export function FilesSidebar({
   currentParentId,
   currentPath,
   allFolders,
+  allFiles = [],
+  activeFileId,
+  creationContext,
   sharedRoots,
   favorites,
   recentFiles,
@@ -122,7 +129,7 @@ export function FilesSidebar({
 
   const childrenByParent = useMemo(() => {
     const map = new Map<string | null, FileResource[]>();
-    for (const folder of allFolders) {
+    for (const folder of [...allFolders, ...allFiles]) {
       // Shared roots are listed in their own section, never under My files.
       if (folder.isShared && (folder.parentId ?? null) === null) continue;
       const key = folder.parentId ?? null;
@@ -130,16 +137,16 @@ export function FilesSidebar({
       if (list) list.push(folder);
       else map.set(key, [folder]);
     }
-    for (const list of map.values()) list.sort((a, b) => a.name.localeCompare(b.name));
+    for (const list of map.values()) list.sort((a, b) => Number(b.isDirectory) - Number(a.isDirectory) || a.name.localeCompare(b.name));
     return map;
-  }, [allFolders]);
+  }, [allFolders, allFiles]);
 
   // Open the tree down to the folder on screen.
   useEffect(() => {
     if (!currentParentId) return;
     const parentOf = new Map(allFolders.map((f) => [f.id, f.parentId ?? null]));
     const chain: string[] = [];
-    for (let id = parentOf.get(currentParentId) ?? null; id != null; id = parentOf.get(id) ?? null) {
+    for (let id: string | null = currentParentId; id != null && !chain.includes(id); id = parentOf.get(id) ?? null) {
       chain.push(id);
     }
     if (chain.length === 0) return;
@@ -179,10 +186,21 @@ export function FilesSidebar({
   });
 
   const renderFolder = (folder: FileResource, parentPath: string, depth: number): React.ReactNode => {
+    if (!folder.isDirectory) {
+      const active = folder.id === activeFileId;
+      return (
+        <div key={folder.id} role="treeitem" aria-selected={active}>
+          <button type="button" title={folder.name} className={rowClass(active, false)} style={{ ...ROW_STYLE, paddingInlineStart: `${26 + depth * 14}px` }} onClick={() => onOpenRecent(folder.id)} onContextMenu={(event) => itemMenu.openContextMenu(event, { kind: 'file', id: folder.id })}>
+            <span className="flex h-4 w-4 shrink-0 items-center justify-center [&>svg]:h-4 [&>svg]:w-4">{getFileIconByName(folder.name, 'sm')}</span>
+            <span className="truncate">{folder.name}</span>
+          </button>
+        </div>
+      );
+    }
     const path = parentPath === "/" ? `/${folder.name}` : `${parentPath}/${folder.name}`;
     const children = childrenByParent.get(folder.id) ?? [];
     const isOpen = expanded.has(folder.id);
-    const active = folder.id === currentParentId;
+    const active = !activeFileId && folder.id === currentParentId;
     const Icon = isOpen && children.length > 0 ? FolderOpen : Folder;
     return (
       <div key={folder.id} role="treeitem" aria-expanded={children.length > 0 ? isOpen : undefined} aria-selected={active}>
@@ -285,7 +303,7 @@ export function FilesSidebar({
       <nav className="flex-1 overflow-y-auto py-1" aria-label={t("folders")}>
         <div role="tree" aria-label={t("my_files")}>
           <div
-            className={rowClass(currentPath === "/" && currentParentId === null, dropTarget === "__root__")}
+            className={rowClass(!activeFileId && currentPath === "/" && currentParentId === null, dropTarget === "__root__")}
             style={{ ...ROW_STYLE, paddingInlineStart: "12px" }}
             onContextMenu={(e) => itemMenu.openContextMenu(e, { kind: "root" })}
             {...dropProps("__root__", null)}
@@ -363,7 +381,7 @@ export function FilesSidebar({
           </div>
         )}
 
-        {recent.length === 0 && favorites.length === 0 && (
+        {allFiles.length === 0 && recent.length === 0 && favorites.length === 0 && (
           <p className="px-4 pt-4 text-xs text-muted-foreground flex items-start gap-1.5">
             <Clock className="w-3.5 h-3.5 shrink-0 mt-px" />
             <span>{t("sidebar_hint")}</span>
@@ -377,6 +395,7 @@ export function FilesSidebar({
         <ContextMenuSeparator />
         <ContextMenuItem icon={FolderPlus} label={t("new_folder")} onClick={() => { newMenu.closeContextMenu(); onNewFolder(); }} />
         <ContextMenuItem icon={FilePlus} label={t("new_text_file")} onClick={() => { newMenu.closeContextMenu(); onNewTextFile(); }} />
+        {creationContext && <PluginActions surface="file-create-actions" variant="menu" context={creationContext} onRan={newMenu.closeContextMenu} />}
       </ContextMenu>
 
       <ContextMenu ref={itemMenu.menuRef} isOpen={itemMenu.contextMenu.isOpen} position={itemMenu.contextMenu.position} onClose={itemMenu.closeContextMenu}>
@@ -425,13 +444,13 @@ export function FilesSidebar({
             <ContextMenuItem icon={StarOff} label={t("unstar")} onClick={() => run(() => onToggleFavorite(menuTarget.path))} />
           </>
         )}
-        {menuTarget?.kind === "recent" && (
+        {(menuTarget?.kind === "recent" || menuTarget?.kind === "file") && (
           <>
             <ContextMenuItem icon={Eye} label={t("open")} onClick={() => run(() => onOpenRecent(menuTarget.id))} />
             <ContextMenuItem icon={FolderSearch} label={t("show_in_folder")} onClick={() => run(() => onRevealRecent(menuTarget.id))} />
             <ContextMenuItem icon={Download} label={t("download")} onClick={() => run(() => onDownloadRecent(menuTarget.id))} />
-            <ContextMenuSeparator />
-            <ContextMenuItem icon={X} label={t("remove_from_recent")} onClick={() => run(() => onRemoveRecent(menuTarget.id))} />
+            {menuTarget.kind === 'recent' && <ContextMenuSeparator />}
+            {menuTarget.kind === 'recent' && <ContextMenuItem icon={X} label={t("remove_from_recent")} onClick={() => run(() => onRemoveRecent(menuTarget.id))} />}
           </>
         )}
       </ContextMenu>

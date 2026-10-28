@@ -16,10 +16,15 @@ import {
 
 const EMPTY: RegisteredAction[] = [];
 
-/** The actions plugins declared for a surface, filtered by folder role or MIME type. */
-export function usePluginActions(surface: string, filter: { mailboxRole?: string | null; mimeType?: string | null; fileName?: string | null } = {}) {
+/** Filter a surface's declarations by content and the host-created workspace instance.
+ * 내용과 호스트가 만든 작업 인스턴스로 표시할 선언을 제한합니다. */
+export function usePluginActions(surface: string, filter: { mailboxRole?: string | null; mimeType?: string | null; fileName?: string | null; instanceId?: string } = {}) {
   const all = useSyncExternalStore(subscribeActions, () => actionsFor(surface), () => EMPTY);
-  return all.filter((a) => actionApplies(a, filter));
+  return all.filter((action) => {
+    if (filter.instanceId !== undefined && action.instanceId !== filter.instanceId) return false;
+    if (action.owner && filter.instanceId === undefined) return false;
+    return actionApplies(action, filter);
+  });
 }
 
 interface PluginActionsProps {
@@ -32,6 +37,8 @@ interface PluginActionsProps {
   mailboxRole?: string | null;
   mimeType?: string | null;
   fileName?: string | null;
+  /** A host-created live workspace; scoped controls never appear on other surfaces. */
+  instanceId?: string;
   /** Host-owned routing for actions that mount a native provider frame. */
   onAction?: (action: RegisteredAction) => Promise<void>;
   className?: string;
@@ -47,16 +54,16 @@ interface PluginActionsProps {
  * Buttons or menu entries plugins declared with api.ui.setActions. The host
  * draws them so they match the app; the plugin gets the click.
  */
-export function PluginActions({ surface, context, variant = 'buttons', mailboxRole, mimeType, fileName, onAction, className, compact, overflow, onRan }: PluginActionsProps) {
-  const actions = usePluginActions(surface, { mailboxRole, mimeType, fileName });
+export function PluginActions({ surface, context, variant = 'buttons', mailboxRole, mimeType, fileName, instanceId, onAction, className, compact, overflow, onRan }: PluginActionsProps) {
+  const actions = usePluginActions(surface, { mailboxRole, mimeType, fileName, instanceId });
   const [busy, setBusy] = useState<string | null>(null);
   if (actions.length === 0) return null;
   if (overflow && variant === 'buttons') {
-    return <PluginActionsOverflow surface={surface} context={context} mailboxRole={mailboxRole} mimeType={mimeType} fileName={fileName} onAction={onAction} className={className} />;
+    return <PluginActionsOverflow surface={surface} context={context} mailboxRole={mailboxRole} mimeType={mimeType} fileName={fileName} instanceId={instanceId} onAction={onAction} className={className} />;
   }
 
   const run = async (action: RegisteredAction) => {
-    const key = `${action.pluginId}:${action.id}`;
+    const key = actionKey(action);
     setBusy(key);
     try {
       onRan?.();
@@ -72,11 +79,12 @@ export function PluginActions({ surface, context, variant = 'buttons', mailboxRo
       <>
         {actions.map((action) => (
           <ContextMenuItem
-            key={`${action.pluginId}:${action.id}`}
+            key={actionKey(action)}
             icon={iconForName(action.icon) ?? Puzzle}
             label={action.label}
             title={action.pluginName}
             destructive={action.danger}
+            disabled={action.disabled || busy === actionKey(action)}
             onClick={() => { void run(action); }}
           />
         ))}
@@ -88,13 +96,13 @@ export function PluginActions({ surface, context, variant = 'buttons', mailboxRo
     <div className={cn('inline-flex flex-wrap items-center gap-1', className)} data-plugin-actions={surface}>
       {actions.map((action) => {
         const Icon = iconForName(action.icon) ?? Puzzle;
-        const key = `${action.pluginId}:${action.id}`;
+        const key = actionKey(action);
         return (
           <button
             key={key}
             type="button"
-            disabled={busy === key}
-            title={compact ? `${action.label} (${action.pluginName})` : action.pluginName}
+            disabled={action.disabled || busy === key}
+            title={actionTitle(action, compact)}
             aria-label={action.label}
             onClick={(e) => { e.stopPropagation(); void run(action); }}
             className={cn(
@@ -114,7 +122,7 @@ export function PluginActions({ surface, context, variant = 'buttons', mailboxRo
 }
 
 /** The actions of a surface behind one "more" button, for toolbars without room for them. */
-function PluginActionsOverflow({ surface, context, mailboxRole, mimeType, fileName, onAction, className }: Pick<PluginActionsProps, 'surface' | 'context' | 'mailboxRole' | 'mimeType' | 'fileName' | 'onAction' | 'className'>) {
+function PluginActionsOverflow({ surface, context, mailboxRole, mimeType, fileName, instanceId, onAction, className }: Pick<PluginActionsProps, 'surface' | 'context' | 'mailboxRole' | 'mimeType' | 'fileName' | 'instanceId' | 'onAction' | 'className'>) {
   const t = useTranslations('email_viewer');
   const { contextMenu, openContextMenu, closeContextMenu, menuRef } = useContextMenu<true>();
   return (
@@ -141,10 +149,25 @@ function PluginActionsOverflow({ surface, context, mailboxRole, mimeType, fileNa
           mailboxRole={mailboxRole}
           mimeType={mimeType}
           fileName={fileName}
+          instanceId={instanceId}
           onAction={onAction}
           onRan={closeContextMenu}
         />
       </ContextMenu>
     </div>
   );
+}
+
+/** Expose provider-owned state through existing control tooltips, without another status bar.
+ * 별도 상태줄 대신 기존 컨트롤의 툴팁으로 제공자가 소유한 상태를 전달합니다. */
+function actionTitle(action: RegisteredAction, compact: boolean | undefined) {
+  if (action.description) return action.description;
+  if (compact) return `${action.label} (${action.pluginName})`;
+  return action.pluginName;
+}
+
+/** Keep a previous instance's completion from clearing a newer control's busy state.
+ * 이전 인스턴스의 완료가 새 컨트롤의 실행 상태를 지우지 않도록 식별합니다. */
+function actionKey(action: RegisteredAction) {
+  return [action.pluginId, action.instanceId ?? '', action.id].join(':');
 }
