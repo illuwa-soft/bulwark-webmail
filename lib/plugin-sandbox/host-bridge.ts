@@ -10,6 +10,7 @@
 import type { InstalledPlugin, SlotName, PluginTier } from '../plugin-types';
 import { dispatchApiCall } from './host-api';
 import { capturePersistentStorageOwner, type PersistentStorageOwner } from './host-api-persistent-storage';
+import { IS_LITE } from '../lite';
 import { SANDBOX_PATH, SANDBOX_PRIVILEGED_PATH, type RegionalSnapshot } from './protocol';
 export type { RegionalSnapshot };
 import { withBasePath } from '../browser-navigation';
@@ -314,7 +315,9 @@ export class SandboxInstance {
     this.pluginId = plugin.id;
     // A pre-login frame can bind on its first authenticated storage call.
     // 로그인 전 프레임은 첫 인증된 저장 호출에서 계정을 고정합니다.
-    try { this.persistentOwner = capturePersistentStorageOwner(); } catch { /* not signed in yet */ }
+    if (!IS_LITE) {
+      try { this.persistentOwner = capturePersistentStorageOwner(); } catch { /* not signed in yet */ }
+    }
     this.mode = initPayload.mode;
     this.embeddedOwner = { slot: initPayload.mode === 'slot' ? initPayload.slot : null, signal: this.embeddedAbort.signal, container: hostContainer };
     this.privileged = initPayload.tier === 'privileged';
@@ -462,7 +465,7 @@ export class SandboxInstance {
         const { id, method, args } = msg;
         void (async () => {
           try {
-            if (method.startsWith('storage.persistent.') && !this.persistentOwner) this.persistentOwner = capturePersistentStorageOwner();
+            if (!IS_LITE && method.startsWith('storage.persistent.') && !this.persistentOwner) this.persistentOwner = capturePersistentStorageOwner();
             const result = await dispatchApiCall(this.plugin, method, args ?? [], { privileged: this.privileged, sink: this, embeddedOwner: this.embeddedOwner, persistentOwner: this.persistentOwner });
             this.send({ type: 'api-response', id, ok: true, result });
           } catch (err) {

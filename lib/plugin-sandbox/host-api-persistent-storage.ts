@@ -5,6 +5,7 @@ import type { InstalledPlugin, Permission } from '@/lib/plugin-types';
 import { persistentRequest, PERSISTENT_READ_PERMISSION, PERSISTENT_WRITE_PERMISSION } from '@/lib/plugin-persistent-storage';
 import type { StorageOperation } from '@/lib/plugin-persistent-storage';
 import { pluginHasPermission } from './permissions';
+import { IS_LITE } from '@/lib/lite';
 
 export type PersistentStorageOwner = {
   accountId: string;
@@ -25,16 +26,18 @@ export function capturePersistentStorageOwner(): PersistentStorageOwner {
 
 /** Captures the native account slot and package; plugin code supplies neither selector.
  * 플러그인 코드가 선택자를 전달하지 않도록 네이티브 계정 슬롯·패키지를 캡처합니다. */
-export async function doPersistentStorage(plugin: InstalledPlugin, operation: StorageOperation, key: unknown, value: unknown, options: unknown, owner = capturePersistentStorageOwner()) {
+export async function doPersistentStorage(plugin: InstalledPlugin, operation: StorageOperation, key: unknown, value: unknown, options: unknown, owner?: PersistentStorageOwner) {
+  if (IS_LITE) throw new Error('storage.persistent.fullServerRequired');
+  const scope = owner ?? capturePersistentStorageOwner();
   let permission: Permission = PERSISTENT_READ_PERMISSION;
   if (operation === 'set' || operation === 'remove') permission = PERSISTENT_WRITE_PERMISSION;
-  const client = owner.client;
+  const client = scope.client;
   let fingerprint = plugin.approvalHash;
   if (plugin.managed) fingerprint = plugin.bundleHash;
   if (!fingerprint) throw new Error('storage.persistent.unauthenticated');
   const check = () => {
     const active = useAccountStore.getState().getActiveAccount();
-    if (useAuthStore.getState().client !== client || active?.id !== owner.accountId || active.cookieSlot !== owner.cookieSlot || client.getUsername() !== owner.username || client.getServerUrl() !== owner.serverUrl) throw new Error('storage.persistent.accountChanged');
+    if (useAuthStore.getState().client !== client || active?.id !== scope.accountId || active.cookieSlot !== scope.cookieSlot || client.getUsername() !== scope.username || client.getServerUrl() !== scope.serverUrl) throw new Error('storage.persistent.accountChanged');
     if (!pluginHasPermission(plugin, permission)) throw new Error('storage.persistent.forbidden');
   };
   check();
@@ -52,9 +55,9 @@ export async function doPersistentStorage(plugin: InstalledPlugin, operation: St
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-JMAP-Cookie-Slot': String(owner.cookieSlot),
-      'X-JMAP-Username': encodeURIComponent(owner.username),
-      'X-JMAP-Server': encodeURIComponent(owner.serverUrl.replace(/\/+$/, '')),
+      'X-JMAP-Cookie-Slot': String(scope.cookieSlot),
+      'X-JMAP-Username': encodeURIComponent(scope.username),
+      'X-JMAP-Server': encodeURIComponent(scope.serverUrl.replace(/\/+$/, '')),
       'X-Bulwark-Plugin-Id': plugin.id,
       'X-Bulwark-Plugin-Fingerprint': fingerprint,
     },

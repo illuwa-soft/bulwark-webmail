@@ -34,7 +34,8 @@ After a timeout or connection loss, read back the key before deciding what to do
 
 Errors use stable `storage.persistent.<code>` messages because the existing
 sandbox error channel transports messages: `invalid`, `conflict`, `quota`,
-`busy`, `unavailable`, `forbidden`, `unauthenticated`, and `accountChanged`.
+`busy`, `unavailable`, `forbidden`, `unauthenticated`, `accountChanged`, and
+`fullServerRequired`.
 
 ## Scope and authorization
 
