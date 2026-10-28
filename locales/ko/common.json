@@ -4156,6 +4156,8 @@
       "allow": "허용"
     },
     "permissions": {
+      "storage_persistent_read": { "title": "플러그인 영속 데이터 읽기", "body": "다른 기기에서 저장한 데이터를 포함해 {appName} 서버에서 내 계정의 이 플러그인 데이터를 읽습니다." },
+      "storage_persistent_write": { "title": "플러그인 영속 데이터 저장", "body": "서버에 보관한 내 계정의 이 플러그인 데이터를 저장·삭제합니다. 로그아웃 후에도 유지되며 메일이나 원본 파일을 변경하는 권한은 아닙니다." },
       "none": "특별한 권한이 필요하지 않아요.",
       "high_risk": "주의 필요",
       "email_read": {

@@ -1349,6 +1349,7 @@ export const ALL_PERMISSIONS = [
   'templates:read', 'templates:write',
   'vacation:read', 'vacation:write',
   'settings:read', 'settings:write',
+  'storage:persistent-read', 'storage:persistent-write',
   'security:read',
   'auth:observe',
   'auth:emit',

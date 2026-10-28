@@ -63,6 +63,7 @@ import { setSectionTitle } from './section-titles';
 import { requestPanel } from './panel-requests';
 import { doComposerAttach, doComposerGetBody, doComposerGetSelection, doComposerGetSnapshot, doComposerReadAttachment, doComposerReplaceBody, doComposerReplaceSelection } from './host-api-composer';
 import { doReadPage, doFilesReadText } from './host-api-read-pages';
+import { doPersistentStorage, type PersistentStorageOwner } from './host-api-persistent-storage';
 import { readEmbeddedCommand, type EmbeddedViewOwner } from '../plugin-embedded/contracts';
 import { requestEmbeddedView } from '../plugin-embedded/requests';
 
@@ -126,6 +127,10 @@ export const PERM_PER_METHOD: Readonly<Record<string, Permission | null>> = {
   'storage.set': null,
   'storage.remove': null,
   'storage.keys': null,
+  'storage.persistent.get': 'storage:persistent-read',
+  'storage.persistent.keys': 'storage:persistent-read',
+  'storage.persistent.set': 'storage:persistent-write',
+  'storage.persistent.remove': 'storage:persistent-write',
   // toast / log don't need a permission (anyone can show a toast).
   'toast.success': null,
   'toast.error': null,
@@ -486,6 +491,7 @@ const PLUGIN_POST_DENIED_ROUTES = new Set([
   // the credential named in the query string, whichever plugin asks.
   'plugin-proxy',
   'plugin-secrets',
+  'plugin-storage',
   'plugins',
   'push',
   'settings',
@@ -1863,7 +1869,7 @@ export async function dispatchApiCall(
   plugin: InstalledPlugin,
   method: string,
   args: unknown[],
-  opts?: { privileged?: boolean; sink?: StreamSink; embeddedOwner?: EmbeddedViewOwner },
+  opts?: { privileged?: boolean; sink?: StreamSink; embeddedOwner?: EmbeddedViewOwner; persistentOwner?: PersistentStorageOwner },
 ): Promise<unknown> {
   // Tier gate: privileged-only methods are refused for untrusted (null-origin)
   // instances even if the permission is somehow present. Defence-in-depth on
@@ -1938,6 +1944,10 @@ export async function dispatchApiCall(
     case 'storage.set': storageSet(plugin.id, args[0] as string, args[1]); return undefined;
     case 'storage.remove': storageRemove(plugin.id, args[0] as string); return undefined;
     case 'storage.keys': return storageKeys(plugin.id);
+    case 'storage.persistent.get': return doPersistentStorage(plugin, 'get', args[0], undefined, undefined, opts?.persistentOwner);
+    case 'storage.persistent.keys': return doPersistentStorage(plugin, 'keys', undefined, undefined, undefined, opts?.persistentOwner);
+    case 'storage.persistent.set': return doPersistentStorage(plugin, 'set', args[0], args[1], args[2], opts?.persistentOwner);
+    case 'storage.persistent.remove': return doPersistentStorage(plugin, 'remove', args[0], undefined, args[1], opts?.persistentOwner);
 
     case 'toast.success': if (mayToast(plugin.id)) appToast.success(toastText(args[0])); return undefined;
     case 'toast.error':   if (mayToast(plugin.id)) appToast.error(toastText(args[0])); return undefined;

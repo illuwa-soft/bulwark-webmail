@@ -392,6 +392,12 @@ function buildPluginApi(manifest: PluginManifest) {
       set: (key: string, value: unknown) => callApi('storage.set', [key, value]),
       remove: (key: string) => callApi('storage.remove', [key]),
       keys: () => callApi('storage.keys', []),
+      persistent: {
+        get: (key: string) => callApi('storage.persistent.get', [key], NETWORK_API_TIMEOUT_MS) as Promise<import('../plugin-persistent-storage').PersistentRecord>,
+        keys: () => callApi('storage.persistent.keys', [], NETWORK_API_TIMEOUT_MS) as Promise<string[]>,
+        set: (key: string, value: import('../plugin-persistent-storage').PluginJson, options: import('../plugin-persistent-storage').PersistentWrite) => callApi('storage.persistent.set', [key, value, options], NETWORK_API_TIMEOUT_MS) as Promise<import('../plugin-persistent-storage').PersistentRecord>,
+        remove: (key: string, options: import('../plugin-persistent-storage').PersistentWrite) => callApi('storage.persistent.remove', [key, options], NETWORK_API_TIMEOUT_MS) as Promise<import('../plugin-persistent-storage').PersistentRecord>,
+      },
     },
     user: {
       getAccounts: () => callApi('user.getAccounts', []),
