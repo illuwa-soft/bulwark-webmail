@@ -5,7 +5,6 @@ import type { InstalledPlugin, Permission } from '@/lib/plugin-types';
 import { persistentRequest, PERSISTENT_READ_PERMISSION, PERSISTENT_WRITE_PERMISSION } from '@/lib/plugin-persistent-storage';
 import type { StorageOperation } from '@/lib/plugin-persistent-storage';
 import { pluginHasPermission } from './permissions';
-import { IS_LITE } from '@/lib/lite';
 
 export type PersistentStorageOwner = {
   accountId: string;
@@ -27,7 +26,9 @@ export function capturePersistentStorageOwner(): PersistentStorageOwner {
 /** Captures the native account slot and package; plugin code supplies neither selector.
  * 플러그인 코드가 선택자를 전달하지 않도록 네이티브 계정 슬롯·패키지를 캡처합니다. */
 export async function doPersistentStorage(plugin: InstalledPlugin, operation: StorageOperation, key: unknown, value: unknown, options: unknown, owner?: PersistentStorageOwner) {
-  if (IS_LITE) throw new Error('storage.persistent.fullServerRequired');
+  // Inline the flag: this module is also retained for frame ownership in Lite.
+  // Lite에서도 프레임 소유권으로 유지되는 모듈이므로 플래그를 직접 인라인합니다.
+  if (process.env.NEXT_PUBLIC_BULWARK_LITE === '1') throw new Error('storage.persistent.fullServerRequired');
   const scope = owner ?? capturePersistentStorageOwner();
   let permission: Permission = PERSISTENT_READ_PERMISSION;
   if (operation === 'set' || operation === 'remove') permission = PERSISTENT_WRITE_PERMISSION;
