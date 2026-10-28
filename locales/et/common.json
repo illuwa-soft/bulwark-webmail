@@ -4156,6 +4156,8 @@
       "allow": "Luba"
     },
     "permissions": {
+      "storage_persistent_read": { "title": "Read persistent plugin data", "body": "Read this plugin's data for your account from the {appName} server, including data saved on other devices." },
+      "storage_persistent_write": { "title": "Save persistent plugin data", "body": "Save and remove this plugin's server-stored data for your account. It survives sign-out. This permission does not change mail or source files." },
       "none": "See ei vaja erilisi õigusi.",
       "high_risk": "Vajab ettevaatust",
       "email_read": {
