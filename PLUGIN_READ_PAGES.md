@@ -71,6 +71,9 @@ primary mail account unless `mailboxId` is given. It is not a unified-inbox coun
   Recurrences are **not expanded**; one series counts as one stored record, not
   its occurrences. Existing range-view expansion is a different API.
 - Files: `name`, `type`, `parentId` (null = root; omitted = all queryable nodes).
+  The native request translates `parentId: null` to `isTopLevel: true`; Stalwart's
+  native `parentId` accepts an ID, not null. Child IDs and public cursor filters
+  retain their existing meaning.
   On old Stalwart versions FileNode/query omits directories; this total describes
   that server query and must not be presented as an exhaustive directory-tree count.
 
