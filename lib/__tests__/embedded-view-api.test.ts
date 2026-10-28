@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { EmbeddedViewOwner } from '../plugin-embedded/contracts';
 import type { InstalledPlugin } from '../plugin-types';
 import { createEmbeddedViewController } from '../plugin-embedded/controller';
-import { registerEmbeddedViewHost, leaveEmbeddedViews, disposeEmbeddedViews } from '../plugin-embedded/requests';
+import { registerEmbeddedViewHost, leaveEmbeddedViews, leaveEmbeddedWorkspace, disposeEmbeddedViews } from '../plugin-embedded/requests';
 import { dispatchApiCall } from '../plugin-sandbox/host-api';
 import { checkPluginManifest } from '../extension-package';
 
@@ -17,6 +17,46 @@ let remove: (() => void) | undefined;
 afterEach(() => { remove?.(); remove = undefined; });
 
 describe('embedded view host authority', () => {
+  it('closes only the selected Files workspace while another document of the same provider stays open', async () => {
+    const first = createEmbeddedViewController(() => 'a');
+    const second = createEmbeddedViewController(() => 'a');
+    const parent = document.createElement('div');
+    const firstRoot = document.createElement('div');
+    parent.append(firstRoot);
+    const secondRoot = document.createElement('div');
+    const disposeFirst = registerEmbeddedViewHost({ pluginId: 'drawing', controller: first, root: firstRoot });
+    const disposeSecond = registerEmbeddedViewHost({ pluginId: 'drawing', controller: second, root: secondRoot });
+    const firstOwner = { slot: 'file-editor', container: firstRoot, signal: new AbortController().signal };
+    const secondOwner = { ...firstOwner, container: secondRoot };
+    const policy = { hostOrigin: 'https://mail.test', frameOrigins: ['https://canvas.test'], framePaths: ['/drawing/'] };
+    const firstView = first.open(firstOwner, { ...command, action: 'open' }, policy);
+    second.open(secondOwner, { ...command, action: 'open' }, policy);
+
+    try {
+      const closing = leaveEmbeddedWorkspace('drawing', parent, 'close');
+      expect(await first.handle(firstOwner, { action: 'next', id: firstView.id })).toMatchObject({ type: 'leave' });
+      first.handle(firstOwner, { action: 'close', id: firstView.id });
+      expect(await closing).toBe(true);
+      expect(second.store.getState().view).not.toBeNull();
+    } finally {
+      disposeFirst();
+      disposeSecond();
+    }
+  });
+
+  it('accepts the Files surface grant without granting access to an app-page instance', async () => {
+    const filePermissions = ['ui:embedded-view', 'ui:files', 'files:read'];
+    const provider = plugin({ permissions: filePermissions, grantedPermissions: filePermissions });
+    const controller = createEmbeddedViewController(() => 'a');
+    const root = document.createElement('div');
+    remove = registerEmbeddedViewHost({ pluginId: provider.id, controller, root });
+    const embeddedOwner = { slot: 'file-editor', signal: new AbortController().signal, container: root };
+    expect(await dispatchApiCall(provider, 'ui.embeddedView', [command], { embeddedOwner })).toMatchObject({ id: expect.any(String) });
+    await expect(dispatchApiCall(provider, 'ui.embeddedView', [command], { embeddedOwner: { ...embeddedOwner, slot: 'app-page' } })).rejects.toThrow(/permission/);
+    await expect(dispatchApiCall(provider, 'ui.closeFileEditor', [], { embeddedOwner: { ...embeddedOwner, slot: 'background' } })).rejects.toThrow(/live file-editor/);
+    await expect(dispatchApiCall(plugin({ permissions: [], grantedPermissions: [] }), 'files.refresh', [])).rejects.toThrow(/files:read/);
+  });
+
   it('requires both consent grants and a bridge-owned app-page instance, without an HTTP grant', async () => {
     for (const missing of permissions) {
       await expect(dispatchApiCall(plugin({ grantedPermissions: permissions.filter(value => value !== missing) }), 'ui.embeddedView', [command])).rejects.toThrow(/permission/);

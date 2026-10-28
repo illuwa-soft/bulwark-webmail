@@ -17,6 +17,8 @@ export interface PluginAction {
   mailboxRoles?: string[];
   /** Show only for attachments or files of these MIME types (prefix match, "image/"). */
   mimeTypes?: string[];
+  /** Explicit extensions for a file-open-actions provider, without the leading dot. */
+  fileExtensions?: string[];
   /** A danger action is drawn in red. */
   danger?: boolean;
   /**
@@ -82,6 +84,12 @@ export function checkActions(value: unknown): PluginAction[] {
         throw new Error(`actions[${i}].mimeTypes must be a list of MIME types`);
       }
       out.mimeTypes = (a.mimeTypes as string[]).map((m) => m.toLowerCase());
+    }
+    if (a.fileExtensions !== undefined) {
+      if (!Array.isArray(a.fileExtensions) || a.fileExtensions.length === 0 || a.fileExtensions.length > 20 || !a.fileExtensions.every((extension) => typeof extension === 'string' && /^[a-z0-9]{1,12}$/i.test(extension))) {
+        throw new Error(`actions[${i}].fileExtensions must name at most 20 file extensions`);
+      }
+      out.fileExtensions = a.fileExtensions.map((extension: string) => extension.toLowerCase());
     }
     if (a.danger !== undefined) out.danger = a.danger === true;
     if (a.checked !== undefined) {
@@ -150,7 +158,8 @@ export function actionsFor(surface: string): RegisteredAction[] {
 }
 
 /** Whether an action applies to a folder role and/or a MIME type. */
-export function actionApplies(action: PluginAction, ctx: { mailboxRole?: string | null; mimeType?: string | null }): boolean {
+export function actionApplies(action: PluginAction, ctx: { mailboxRole?: string | null; mimeType?: string | null; fileName?: string | null }): boolean {
+  if (action.fileExtensions && ctx.fileName !== undefined && !action.fileExtensions.includes((ctx.fileName ?? '').split('.').at(-1)?.toLowerCase() ?? '')) return false;
   if (action.mailboxRoles && ctx.mailboxRole !== undefined && !action.mailboxRoles.includes(ctx.mailboxRole ?? '')) return false;
   if (action.mimeTypes && ctx.mimeType !== undefined) {
     const type = (ctx.mimeType ?? '').toLowerCase();

@@ -7,6 +7,16 @@ const launch = { action: 'open' as const, url: 'https://editor.test/workbench/do
 const owner = (abort = new AbortController()): EmbeddedViewOwner => ({ slot: 'app-page', signal: abort.signal, container: document.createElement('div') });
 
 describe('provider-neutral embedded views', () => {
+  it('admits an actual file-editor scope without admitting other background or preview instances', () => {
+    const controller = createEmbeddedViewController(() => 'account-a');
+    const scope = { ...owner(), slot: 'file-editor' };
+    expect(controller.open(scope, launch, policy)).toHaveProperty('id');
+    controller.dispose();
+    for (const slot of ['background', 'file-preview-section', 'settings-page']) {
+      expect(() => controller.open({ ...owner(), slot }, launch, policy)).toThrow();
+    }
+  });
+
   it('admits different applications, but refuses same-origin, unapproved and out-of-path documents', () => {
     expect(readEmbeddedUrl(launch.url, policy)).toBe(launch.url);
     expect(readEmbeddedUrl('https://canvas.test/drawing/a', policy)).toBe('https://canvas.test/drawing/a');

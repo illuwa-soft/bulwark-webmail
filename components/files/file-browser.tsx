@@ -79,7 +79,7 @@ interface FileBrowserProps {
   onPreviewFile: (name: string) => void;
   /** WOPI document editing (#425): whether a file can open in the document editor. */
   isOfficeEditable?: (name: string) => boolean;
-  onEditFile?: (name: string) => void;
+  onEditFile?: (name: string, pluginId?: string) => void;
   onCreateTextFile: (name: string) => Promise<void>;
   onDuplicate: (name: string) => Promise<void>;
   getImageUrl: (name: string) => Promise<string>;
@@ -805,6 +805,7 @@ export function FileBrowser({
         <ContextMenuItem icon={Info} label={t("details")} onClick={() => { closeMenu(); toggleDetails(true); }} />
         <ContextMenuSeparator />
         <ContextMenuItem icon={Trash2} label={t("delete")} shortcut="Del" destructive onClick={() => { closeMenu(); deleteNames([resource.name]); }} />
+        {!resource.isDirectory && onEditFile && <PluginActions surface="file-open-actions" variant="menu" context={{}} fileName={resource.name} onRan={closeMenu} onAction={async (action) => { onEditFile(resource.name, action.pluginId); }} />}
         <FilePluginMenuEntries
           files={[resourceToView(resource, currentPath)]}
           mimeType={resource.isDirectory ? "" : resource.contentType}
@@ -821,6 +822,7 @@ export function FileBrowser({
       <ContextMenuSeparator />
       <ContextMenuItem icon={FolderPlus} label={t("new_folder")} onClick={() => { closeMenu(); setShowNewFolder(true); }} />
       <ContextMenuItem icon={FilePlus} label={t("new_text_file")} onClick={() => { closeMenu(); setShowNewTextFile(true); }} />
+      {canCreate && ownAccountId && <PluginActions surface="file-create-actions" variant="menu" context={{ parentId: currentParentId, accountId: ownAccountId, path: currentPath }} onRan={closeMenu} />}
     </>
   );
 
