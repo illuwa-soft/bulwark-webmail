@@ -1,4 +1,9 @@
 {
+  "plugin_file_grants": {
+    "title": "后台文件读取授权",
+    "message": "{plugin} · {account} → {origin}\n\n仅可读取以下范围：\n{paths}\n\n关闭此窗口后仍会继续。到期时间：{expires}。您可以撤销访问权限。原生账户凭据仅保留在此主机上。",
+    "allow": "允许读取"
+  },
   "meta_description": "使用 JMAP 协议的极简网页邮件客户端",
   "login": {
     "title": "网页邮箱",

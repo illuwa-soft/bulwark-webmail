@@ -1,4 +1,9 @@
 {
+  "plugin_file_grants": {
+    "title": "Lectura de archivos en segundo plano",
+    "message": "{plugin} · {account} → {origin}\n\nAcceso de solo lectura a:\n{paths}\n\nContinúa al cerrar esta ventana. Caduca: {expires}. Puede revocar el acceso. Las credenciales de la cuenta nativa permanecen en este servidor.",
+    "allow": "Permitir lectura"
+  },
   "meta_description": "Cliente de correo web minimalista que usa el protocolo JMAP",
   "login": {
     "title": "Correo Web",

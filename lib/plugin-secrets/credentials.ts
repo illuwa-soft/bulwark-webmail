@@ -26,6 +26,8 @@ export type CredentialInject =
   | { type: 'header'; name: string; prefix?: string };
 
 export interface AdminCredentialSpec {
+  /** Opt in to a short-lived host-signed account identity, never native credentials. */
+  attestUser?: boolean;
   label: string;
   scope: 'admin';
   inject: CredentialInject;
@@ -142,6 +144,10 @@ export function checkCredentials(
     if (typeof c.label !== 'string' || !c.label.trim() || c.label.length > 80) { errors.push(`${where}.label is required (max 80 characters)`); continue; }
     const inject = checkInject(c.inject);
     if (!inject) { errors.push(`${where}.inject is invalid`); continue; }
+    if (c.attestUser !== undefined && (typeof c.attestUser !== 'boolean' || c.scope !== 'admin')) {
+      errors.push(`${where}.attestUser must be a boolean on an admin credential`);
+      continue;
+    }
     let fixedOrigin: string | undefined;
     if (c.origin !== undefined) {
       const origin = credentialOrigin(c.origin);
@@ -173,6 +179,7 @@ export function checkCredentials(
     if (usernameKey === null) continue;
     out[id] = {
       label: c.label, scope: 'admin', inject, secretKey,
+      ...(c.attestUser !== undefined ? { attestUser: c.attestUser } : {}),
       ...(fixedOrigin ? { origin: fixedOrigin } : {}),
       ...(originKey ? { originKey } : {}),
       ...(usernameKey ? { usernameKey } : {}),

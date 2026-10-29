@@ -1,4 +1,9 @@
 {
+  "plugin_file_grants": {
+    "title": "バックグラウンドのファイル読み取り許可",
+    "message": "{plugin} · {account} → {origin}\n\n読み取り専用の範囲:\n{paths}\n\nこの画面を閉じても継続します。有効期限: {expires}。いつでも取り消せます。ネイティブアカウントの認証情報はこのホストにのみ保存されます。",
+    "allow": "読み取りを許可"
+  },
   "meta_description": "JMAPプロトコルを使用するミニマルなウェブメールクライアント",
   "login": {
     "title": "ウェブメール",

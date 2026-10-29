@@ -1,4 +1,9 @@
 {
+  "plugin_file_grants": {
+    "title": "Fájlok olvasása a háttérben",
+    "message": "{plugin} · {account} → {origin}\n\nCsak olvasási hozzáférés:\n{paths}\n\nAz ablak bezárása után is folytatódik. Lejárat: {expires}. A hozzáférés visszavonható. Az eredeti fiók hitelesítő adatai ezen a kiszolgálón maradnak.",
+    "allow": "Olvasás engedélyezése"
+  },
   "meta_description": "Minimalista webmail kliens JMAP protokollal",
   "login": {
     "title": "Webmail",

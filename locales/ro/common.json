@@ -1,4 +1,9 @@
 {
+  "plugin_file_grants": {
+    "title": "Citirea fișierelor în fundal",
+    "message": "{plugin} · {account} → {origin}\n\nAcces doar pentru citire la:\n{paths}\n\nContinuă după închiderea ferestrei. Expiră: {expires}. Puteți revoca accesul. Datele de autentificare ale contului nativ rămân pe această gazdă.",
+    "allow": "Permite citirea"
+  },
   "meta_description": "Client de webmail minimalist care utilizează protocolul JMAP",
   "login": {
     "title": "Webmail",

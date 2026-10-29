@@ -1,4 +1,9 @@
 {
+  "plugin_file_grants": {
+    "title": "Arka planda dosya okuma izni",
+    "message": "{plugin} · {account} → {origin}\n\nSalt okunur erişim kapsamı:\n{paths}\n\nBu pencere kapatıldıktan sonra devam eder. Bitiş: {expires}. Erişimi iptal edebilirsiniz. Yerel hesap kimlik bilgileri bu sunucuda kalır.",
+    "allow": "Okumaya izin ver"
+  },
   "meta_description": "JMAP protokolünü kullanan minimalist web posta istemcisi",
   "login": {
     "title": "Webmail",

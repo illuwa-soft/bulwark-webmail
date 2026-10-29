@@ -1,4 +1,9 @@
 {
+  "plugin_file_grants": {
+    "title": "קריאת קבצים ברקע",
+    "message": "{plugin} · {account} → {origin}\n\nגישה לקריאה בלבד אל:\n{paths}\n\nממשיך לאחר סגירת החלון. תוקף: {expires}. ניתן לבטל את הגישה. פרטי ההתחברות של החשבון המקורי נשארים בשרת זה.",
+    "allow": "אפשר קריאה"
+  },
   "login": {
     "title": "Webmail",
     "username_label": "דוא״ל",

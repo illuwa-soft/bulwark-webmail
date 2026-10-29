@@ -86,6 +86,9 @@ export const LITE_API_STRING_ALLOWLIST = [
   // loaded plugins and the plugins settings tab; pluginsEnabled is pinned off.
   "/api/plugin-proxy",
   "/api/plugin-secrets",
+  // Optional background file grants: proxy-client rejects them in IS_LITE;
+  // pluginsEnabled is pinned off, like the existing credential proxy above.
+  "/api/plugin-file-grants",
   // stores/settings-store.ts - settingsSyncEnabled is pinned off.
   "/api/settings",
   // Stalwart's own account discovery (lib/auth/lite-oauth.ts), not a route of this app.

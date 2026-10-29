@@ -1,4 +1,9 @@
 {
+  "plugin_file_grants": {
+    "title": "Læs filer i baggrunden",
+    "message": "{plugin} · {account} → {origin}\n\nSkrivebeskyttet adgang til:\n{paths}\n\nFortsætter efter vinduet lukkes. Udløber: {expires}. Du kan tilbagekalde adgangen. Den oprindelige kontos loginoplysninger bliver på denne vært.",
+    "allow": "Tillad læsning"
+  },
   "meta_description": "Minimalistisk webmail-klient, der bruger JMAP-protokollen",
   "login": {
     "title": "Webmail",

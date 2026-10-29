@@ -1,4 +1,9 @@
 {
+  "plugin_file_grants": {
+    "title": "Les filer i bakgrunnen",
+    "message": "{plugin} · {account} → {origin}\n\nKun lesetilgang til:\n{paths}\n\nFortsetter når vinduet lukkes. Utløper: {expires}. Du kan trekke tilbake tilgangen. Påloggingsinformasjonen til den opprinnelige kontoen blir på denne verten.",
+    "allow": "Tillat lesing"
+  },
   "meta_description": "Minimalistisk nettpostklient som bruker JMAP-protokollen",
   "login": {
     "title": "Nettpost",

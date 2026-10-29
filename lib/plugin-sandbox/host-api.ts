@@ -7,7 +7,7 @@ import { fetchConfig } from '@/hooks/use-config';
 import { IS_LITE } from '../lite';
 import { doAppGetSettings, doAppSearchSettings } from './host-api-app';
 import { mayOfferSlot, pluginHasPermission } from './permissions';
-import { proxyAccounts, proxyCancel, proxyConnect, proxyDisconnect, proxyFetch, type StreamSink } from './proxy-client';
+import { proxyAccounts, proxyCancel, proxyConnect, proxyDisconnect, proxyFetch, proxyFileGrant, proxyGrantFiles, proxyRevokeFiles, type StreamSink } from './proxy-client';
 import { checkActions, isActionSurface, setPluginActions } from './actions';
 import { checkDayLabels, setDayLabels } from './day-labels';
 import { refreshRowBadges } from './row-badges';
@@ -244,6 +244,9 @@ export const PERM_PER_METHOD: Readonly<Record<string, Permission | null>> = {
   'proxy.connect': 'http:proxy',
   'proxy.accounts': 'http:proxy',
   'proxy.disconnect': 'http:proxy',
+  'proxy.fileGrant': 'http:proxy',
+  'proxy.grantFiles': 'http:proxy',
+  'proxy.revokeFiles': 'http:proxy',
   // Buttons and menu entries drawn by the host; the surface's own
   // permission is checked per call (see the slot catalogue).
   'ui.setActions': null,
@@ -490,6 +493,8 @@ const PLUGIN_POST_DENIED_ROUTES = new Set([
   // Another plugin's connected accounts and admin keys: the proxy injects
   // the credential named in the query string, whichever plugin asks.
   'plugin-proxy',
+  'plugin-file-grants',
+  'plugin-files',
   'plugin-secrets',
   'plugin-storage',
   'plugins',
@@ -1922,6 +1927,9 @@ export async function dispatchApiCall(
     case 'proxy.connect': return proxyConnect(plugin, args);
     case 'proxy.accounts': return proxyAccounts(plugin);
     case 'proxy.disconnect': return proxyDisconnect(plugin, args);
+    case 'proxy.fileGrant': return proxyFileGrant(plugin, args);
+    case 'proxy.grantFiles': return proxyGrantFiles(plugin, args);
+    case 'proxy.revokeFiles': return proxyRevokeFiles(plugin, args);
 
     case 'ui.setActions': {
       const surface = args[0];

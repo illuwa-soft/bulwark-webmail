@@ -1,4 +1,9 @@
 {
+  "plugin_file_grants": {
+    "title": "Odczyt plików w tle",
+    "message": "{plugin} · {account} → {origin}\n\nDostęp tylko do odczytu:\n{paths}\n\nDziała po zamknięciu okna. Wygasa: {expires}. Możesz cofnąć dostęp. Dane logowania konta natywnego pozostają na tym hoście.",
+    "allow": "Zezwól na odczyt"
+  },
   "meta_description": "Minimalistyczny klient poczty internetowej wykorzystujący protokół JMAP",
   "login": {
     "title": "Webmail",

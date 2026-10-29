@@ -106,7 +106,9 @@ export type PayloadPurpose =
   /** A user's plugin credentials (lib/plugin-secrets/vault.ts). */
   | 'plugin-secrets'
   /** Account-scoped plugin JSON state in the settings volume. */
-  | 'plugin-storage';
+  | 'plugin-storage'
+  /** Host-only storage of bounded, revocable plugin read capabilities. */
+  | 'plugin-file-grants';
 
 /**
  * Whether a blob minted before purposes were bound may be re-admitted for
@@ -128,6 +130,7 @@ const LEGACY_PAYLOAD_MARKERS: Record<PayloadPurpose, (payload: Record<string, un
   'impersonation-grant': () => false,
   'plugin-secrets': () => false,
   'plugin-storage': () => false,
+  'plugin-file-grants': () => false,
 };
 
 export function encryptPayload(payload: Record<string, unknown>, purpose: PayloadPurpose): string {

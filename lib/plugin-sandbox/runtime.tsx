@@ -37,7 +37,7 @@ import { isFillableSlot, isInlineSlot, MAX_INLINE_SLOT_WIDTH } from './slot-layo
 import type {
   AppInfoView, AppSettingsView, SettingsSearchResult, CalendarEventInput, CalendarEventView, CalendarView, ComposeInput, DraftInput, EmailReadView,
   EmailSummary, IdentityPatch, IdentityView, MailboxView, NotificationInput, SlotName, TaskInput,
-  TaskView, TemplateInput, TemplateView, VacationInput, VacationView, ComposerSnapshot, ComposerAttachmentData,
+  TaskView, TemplateInput, TemplateView, VacationInput, VacationView, ComposerSnapshot, ComposerAttachmentData, PluginFileGrant,
 } from '../plugin-types';
 import { AddressBook, ContactCard } from '../jmap/types';
 import { EncryptionAtRestConfig, PublicKeyInput } from '@/stores/account-security-store';
@@ -655,6 +655,11 @@ function buildPluginApi(manifest: PluginManifest) {
        */
       accounts: () => callApi('proxy.accounts', []) as Promise<Array<{ credentialId: string; scope: 'user' | 'admin'; origin?: string; username?: string; connected: boolean }>>,
       disconnect: (credentialId: string) => callApi('proxy.disconnect', [credentialId]) as Promise<boolean>,
+      /** Inspect a bounded read grant without exposing its token. */
+      fileGrant: (credentialId: string) => callApi('proxy.fileGrant', [credentialId]) as Promise<PluginFileGrant>,
+      /** Ask host consent for background reads of these files/folders (also files:read). */
+      grantFiles: (credentialId: string, options: { paths: string[]; expiresIn?: number }) => callApi('proxy.grantFiles', [credentialId, options], 0) as Promise<PluginFileGrant>,
+      revokeFiles: (credentialId: string) => callApi('proxy.revokeFiles', [credentialId]) as Promise<boolean>,
     },
     // Reading mail (permission: email:read) and keyword mutations
     // (permission: email:write). Keywords follow JMAP syntax, e.g.

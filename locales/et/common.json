@@ -1,4 +1,9 @@
 {
+  "plugin_file_grants": {
+    "title": "Failide lugemine taustal",
+    "message": "{plugin} · {account} → {origin}\n\nAinult lugemisõigus:\n{paths}\n\nJätkub pärast akna sulgemist. Aegub: {expires}. Juurdepääsu saab tühistada. Algse konto sisselogimisandmed jäävad sellesse serverisse.",
+    "allow": "Luba lugemine"
+  },
   "meta_description": "Minimalistlik JMAP-protokolli kasutav veebipostiklient",
   "login": {
     "title": "Veebipost",

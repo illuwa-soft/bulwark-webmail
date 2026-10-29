@@ -1,4 +1,9 @@
 {
+  "plugin_file_grants": {
+    "title": "Failu lasīšana fonā",
+    "message": "{plugin} · {account} → {origin}\n\nTikai lasīšanas piekļuve:\n{paths}\n\nTurpinās pēc loga aizvēršanas. Derīgs līdz: {expires}. Piekļuvi var atsaukt. Sākotnējā konta akreditācijas dati paliek šajā serverī.",
+    "allow": "Atļaut lasīšanu"
+  },
   "meta_description": "Minimālistisks tīmekļa pasta klients, kas izmanto JMAP protokolu",
   "login": {
     "title": "Tīmekļa pasts",
