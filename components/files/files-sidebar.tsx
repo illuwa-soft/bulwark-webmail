@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import {
   Plus, HardDrive, Folder, FolderOpen, ChevronRight, ChevronDown, Star, StarOff,
-  Clock, Share2, Upload, FolderUp, FolderPlus, FilePlus, Pencil, Trash2, Download, Eye, X, FolderSearch,
+  Clock, Share2, Upload, FolderUp, FolderPlus, FilePlus, Pencil, Trash2, Download, Eye, X, FolderSearch, PanelLeftClose, PanelLeftOpen,
 } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { ContextMenu, ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu";
@@ -29,6 +29,13 @@ function loadCollapsed(): Record<string, boolean> {
 
 const ROW_STYLE = { paddingBlock: "var(--density-sidebar-py, 4px)", minHeight: "32px" } as const;
 
+/** Reuse the localized expand/collapse labels for the whole explorer, without changing tree sections.
+ * 트리 구역 상태와 구분해 탐색기 전체에 기존 펼침·접기 번역을 사용합니다. */
+function explorerToggleKey(folded: boolean) {
+  if (folded) return 'expand_folder';
+  return 'collapse_folder';
+}
+
 function rowClass(active: boolean, dropTarget: boolean) {
   return cn(
     "group w-full flex items-center gap-2 pe-3 text-sm transition-colors text-start",
@@ -50,6 +57,11 @@ type MenuTarget =
 export type CreateKind = "folder" | "text" | "files" | "dir";
 
 export interface FilesSidebarProps {
+  /** Fold only this explorer; the document and native file state remain mounted. */
+  folded?: boolean;
+  onToggleExplorer?: () => void;
+  /** Opaque controls from the active provider, displayed outside the document canvas. */
+  actions?: ReactNode;
   currentParentId: string | null;
   currentPath: string;
   /** Every known folder; the tree is built from their parent links. */
@@ -83,7 +95,12 @@ export interface FilesSidebarProps {
   onRemoveRecent: (id: string) => void;
 }
 
+/** Keep the tree and opaque provider controls available without consuming document height.
+ * 문서 높이를 차지하지 않고 트리와 불투명한 제공자 컨트롤을 유지합니다. */
 export function FilesSidebar({
+  folded = false,
+  onToggleExplorer,
+  actions,
   currentParentId,
   currentPath,
   allFolders,
@@ -112,6 +129,8 @@ export function FilesSidebar({
   onRemoveRecent,
 }: FilesSidebarProps) {
   const t = useTranslations("files");
+  const treeId = useId();
+  const toggleLabel = t(explorerToggleKey(folded), { name: t('title') });
   const newMenu = useContextMenu<null>();
   const itemMenu = useContextMenu<MenuTarget>();
   const newButtonRef = useRef<HTMLButtonElement>(null);
@@ -277,30 +296,52 @@ export function FilesSidebar({
   return (
     <div className="flex flex-col h-full bg-secondary">
       {/* Same h-14 box as the mail sidebar's account switcher, so the apps line up. */}
-      <div className="px-3 h-14 border-b border-border flex items-center justify-between flex-shrink-0">
-        <span className="text-sm font-semibold truncate">{t("title")}</span>
-        {canCreate && (
-          <Button
-            ref={newButtonRef}
-            size="icon"
-            variant="ghost"
-            className="h-8 w-8 flex-shrink-0"
-            aria-label={t("new")}
-            title={t("new")}
-            aria-haspopup="menu"
-            aria-expanded={newMenu.contextMenu.isOpen}
-            onMouseDown={(e) => { if (newMenu.contextMenu.isOpen) e.stopPropagation(); }}
-            onClick={(e) => {
-              if (newMenu.contextMenu.isOpen) newMenu.closeContextMenu();
-              else newMenu.openContextMenu(anchorEvent(e.currentTarget, "end"), null);
-            }}
-          >
-            <Plus className="w-4 h-4" />
-          </Button>
-        )}
+      <div className={cn("px-3 h-14 border-b border-border flex items-center justify-between flex-shrink-0", folded && "h-auto min-h-14 flex-col gap-1 px-0.5 py-2")}>
+        <span className={cn("text-sm font-semibold truncate", folded && "sr-only")}>{t("title")}</span>
+        <div className={cn("flex items-center gap-1", folded && "flex-col")}>
+          {onToggleExplorer && (
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8 shrink-0"
+              data-file-explorer-toggle
+              aria-controls={treeId}
+              aria-expanded={!folded}
+              aria-label={toggleLabel}
+              title={toggleLabel}
+              onClick={onToggleExplorer}
+            >
+              {folded && <PanelLeftOpen className="h-4 w-4 rtl:rotate-180" />}
+              {!folded && <PanelLeftClose className="h-4 w-4 rtl:rotate-180" />}
+            </Button>
+          )}
+          {canCreate && (
+            <Button
+              ref={newButtonRef}
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8 flex-shrink-0"
+              aria-label={t("new")}
+              title={t("new")}
+              aria-haspopup="menu"
+              aria-expanded={newMenu.contextMenu.isOpen}
+              onMouseDown={(e) => { if (newMenu.contextMenu.isOpen) e.stopPropagation(); }}
+              onClick={(e) => {
+                if (newMenu.contextMenu.isOpen) {
+                  newMenu.closeContextMenu();
+                  return;
+                }
+                newMenu.openContextMenu(anchorEvent(e.currentTarget, "end"), null);
+              }}
+            >
+              <Plus className="w-4 h-4" />
+            </Button>
+          )}
+        </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto py-1" aria-label={t("folders")}>
+      <nav id={treeId} hidden={folded} inert={folded} className={cn("flex-1 overflow-y-auto py-1", folded && "hidden")} aria-label={t("folders")}>
         <div role="tree" aria-label={t("my_files")}>
           <div
             className={rowClass(!activeFileId && currentPath === "/" && currentParentId === null, dropTarget === "__root__")}
@@ -388,6 +429,11 @@ export function FilesSidebar({
           </p>
         )}
       </nav>
+      {actions && (
+        <div role="toolbar" aria-label={t('toolbar')} className={cn('mt-auto flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-1 border-t border-border px-3 py-2', folded && 'justify-center p-0.5')}>
+          {actions}
+        </div>
+      )}
 
       <ContextMenu ref={newMenu.menuRef} isOpen={newMenu.contextMenu.isOpen} position={newMenu.contextMenu.position} onClose={newMenu.closeContextMenu}>
         <ContextMenuItem icon={Upload} label={t("upload_files")} onClick={() => { newMenu.closeContextMenu(); onUploadFiles(); }} />

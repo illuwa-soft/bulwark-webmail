@@ -42,8 +42,8 @@ export function PluginFileEditor({ target, onClose, ref }: { target: FileEditorT
   );
 }
 
-/** Reuse the existing Files toolbar; save controls belong to the exact declaring provider frame.
- * 기존 파일 도구 모음을 재사용하고 저장 컨트롤은 선언한 제공자 프레임에 결합합니다. */
+/** Dock controls outside the canvas; provider actions remain bound to their exact declaring frame.
+ * 캔버스 밖에 컨트롤을 배치하고 제공자 액션은 선언한 프레임에 정확히 결합합니다. */
 export function PluginFileEditorControls({ target, onClose }: { target: FileEditorTarget; onClose(): Promise<boolean> }) {
   const common = useTranslations('common');
   const copy = useTranslations('plugins.permissions.ui_embedded_view');
@@ -63,8 +63,8 @@ export function PluginFileEditorControls({ target, onClose }: { target: FileEdit
   };
 
   return (
-    <div className="flex shrink-0 items-center gap-1">
-      <PluginActions surface="file-editor-actions" instanceId={target.instanceId} context={{ file: target.file, accountId: target.accountId }} compact />
+    <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1">
+      <PluginActions surface="file-editor-actions" instanceId={target.instanceId} context={{ file: target.file, accountId: target.accountId }} compact className="max-w-full" />
       <button type="button" aria-label={common('close')} title={common('close')} disabled={closing} onClick={() => { void close(); }} className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50">
         <X className="h-4 w-4" />
       </button>
