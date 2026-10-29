@@ -17,4 +17,6 @@ Starting progress shares the ordinary **five starts per ten seconds per plugin**
 
 The plugin owns task completion, failure, cancellation and any terminal message. The host owns the progress display, handle isolation and frame-lifetime cleanup; it contains no product-specific task logic.
 
+Each sandbox instance owns a dedicated `toastLifetime` AbortController, passed to toast dispatch and aborted by `destroy()`. Notification cleanup does not require embedded views, persistent storage or any other downstream extension.
+
 진행 알림은 일반 알림의 5초 만료 대신 명시적 종료 또는 프레임 종료까지 유지됩니다. 플러그인은 작업 성공·실패·취소와 최종 안내를 처리하고, 호스트는 프레임별 알림 소유권·표시·정리만 담당합니다.

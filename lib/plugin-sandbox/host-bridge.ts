@@ -292,6 +292,9 @@ export class SandboxInstance {
   private rejectInit!: (err: Error) => void;
   private listener: (ev: MessageEvent) => void;
   private destroyed = false;
+  /** Own notification cleanup without relying on optional view extensions.
+   * 선택적 뷰 확장에 의존하지 않고 알림 정리 수명을 소유합니다. */
+  private readonly toastLifetime = new AbortController();
   private embeddedAbort = new AbortController();
   private embeddedOwner: EmbeddedViewOwner;
   private persistentOwner?: PersistentStorageOwner;
@@ -466,7 +469,7 @@ export class SandboxInstance {
         void (async () => {
           try {
             if (!IS_LITE && method.startsWith('storage.persistent.') && !this.persistentOwner) this.persistentOwner = capturePersistentStorageOwner();
-            const result = await dispatchApiCall(this.plugin, method, args ?? [], { privileged: this.privileged, sink: this, embeddedOwner: this.embeddedOwner, persistentOwner: this.persistentOwner, toastSignal: this.embeddedAbort.signal });
+            const result = await dispatchApiCall(this.plugin, method, args ?? [], { privileged: this.privileged, sink: this, embeddedOwner: this.embeddedOwner, persistentOwner: this.persistentOwner, toastSignal: this.toastLifetime.signal });
             this.send({ type: 'api-response', id, ok: true, result });
           } catch (err) {
             this.send({ type: 'api-response', id, ok: false, error: (err as Error).message ?? String(err) });
@@ -637,6 +640,7 @@ export class SandboxInstance {
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.toastLifetime.abort();
     this.embeddedAbort.abort();
     liveInstances.delete(this);
     window.removeEventListener('message', this.listener);
