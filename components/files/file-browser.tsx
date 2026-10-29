@@ -8,6 +8,7 @@ import {
   RefreshCw, Star, StarOff, Plus, CheckSquare,
 } from "@/components/icons";
 import { useIsDesktop, useIsMobile, useMediaQuery } from "@/hooks/use-media-query";
+import { fileExplorerWidth, useFileExplorerVisibility } from "@/hooks/use-file-explorer-visibility";
 import { useContextMenu } from "@/hooks/use-context-menu";
 import { Button } from "@/components/ui/button";
 import { ContextMenu, ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu";
@@ -49,7 +50,7 @@ export interface AccountFolderEntry {
 }
 
 interface FileBrowserProps {
-  /** An editor occupies only the listing pane; the explorer and its toolbar remain native. */
+  /** An editor fills the listing pane; its opaque controls are docked in the native explorer. */
   workspace?: { id: string; fileId: string; content: ReactNode; actions: ReactNode };
   currentPath: string;
   resources: FileResource[];
@@ -127,6 +128,8 @@ function isTypingTarget(target: EventTarget | null): boolean {
   return el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable;
 }
 
+/** Keep native browsing beside an uninterrupted provider canvas; the provider owns completion.
+ * 네이티브 탐색과 제공자 캔버스를 나란히 유지하고 완료 판단은 제공자에게 맡깁니다. */
 export function FileBrowser({
   workspace,
   currentPath,
@@ -238,9 +241,9 @@ export function FileBrowser({
   const isNarrow = !isDesktop;
   const isMobile = useIsMobile();
   const touch = useMediaQuery("(pointer: coarse)") && isMobile;
-  const [narrowSidebarOpen, setNarrowSidebarOpen] = useState(false);
-  useEffect(() => { if (!isNarrow) setNarrowSidebarOpen(false); }, [isNarrow]);
-  useEffect(() => { setNarrowSidebarOpen(false); }, [currentPath]);
+  const { folded, drawerOpen: narrowSidebarOpen, closeDrawer, toggleExplorer } = useFileExplorerVisibility(isNarrow, currentPath);
+  const explorerFolded = (!isNarrow && folded) || (isNarrow && !!workspace && !narrowSidebarOpen);
+  const drawerHidden = isNarrow && !narrowSidebarOpen && !workspace;
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     if (typeof window !== "undefined") {
       const saved = Number(localStorage.getItem("files-sidebar-width"));
@@ -862,6 +865,9 @@ export function FileBrowser({
   // ---- Rendering -------------------------------------------------------------
   const sidebar = !accountPickerMode && (
     <FilesSidebar
+      folded={explorerFolded}
+      onToggleExplorer={toggleExplorer}
+      actions={workspace?.actions}
       currentParentId={currentParentId}
       currentPath={currentPath}
       allFolders={allFolders}
@@ -873,7 +879,7 @@ export function FileBrowser({
       recentFiles={recentFiles}
       canCreate={canCreate}
       onNavigate={onNavigate}
-      onOpenRecent={(id) => { setNarrowSidebarOpen(false); onOpenRecent(id); }}
+      onOpenRecent={(id) => { closeDrawer(); onOpenRecent(id); }}
       onUploadFiles={() => fileInputRef.current?.click()}
       onUploadFolder={() => folderInputRef.current?.click()}
       onNewFolder={() => setShowNewFolder(true)}
@@ -1018,30 +1024,31 @@ export function FileBrowser({
 
   return (
     <div className="relative flex flex-1 min-h-0">
-      {/* Folder sidebar: in flow on desktop, a drawer on narrow panes */}
+      {/* Fold the explorer without reparenting or remounting the active document. */}
       {sidebar && isNarrow && narrowSidebarOpen && (
-        <div className="absolute inset-0 bg-black/50 z-40" onClick={() => setNarrowSidebarOpen(false)} />
+        <div className="absolute inset-0 bg-black/50 z-40" onClick={closeDrawer} />
       )}
-      {sidebar && (isNarrow ? (
+      {sidebar && (
         <div
+          data-file-explorer
           className={cn(
-            "absolute inset-y-0 start-0 z-50 w-72 border-e border-border",
-            "transform transition-transform duration-300 ease-in-out",
-            !narrowSidebarOpen && "-translate-x-full rtl:translate-x-full",
+            "border-e border-border flex-shrink-0",
+            isNarrow && "absolute inset-y-0 start-0 z-50 transform transition-transform duration-300 ease-in-out",
+            drawerHidden && "-translate-x-full rtl:translate-x-full",
+            !isNarrow && !isResizing && "transition-[width] duration-300",
           )}
-          aria-hidden={!narrowSidebarOpen}
-          inert={!narrowSidebarOpen}
+          style={{ width: fileExplorerWidth(explorerFolded, isNarrow, sidebarWidth) }}
+          aria-hidden={drawerHidden}
+          inert={drawerHidden}
+          onKeyDown={event => {
+            if (isNarrow && narrowSidebarOpen && event.key === 'Escape') closeDrawer();
+          }}
         >
           {sidebar}
         </div>
-      ) : (
-        <>
-          <div
-            className={cn("border-e border-border flex-shrink-0", !isResizing && "transition-[width] duration-300")}
-            style={{ width: `${sidebarWidth}px` }}
-          >
-            {sidebar}
-          </div>
+      )}
+      {sidebar && isNarrow && workspace && <div className="w-10 shrink-0" aria-hidden />}
+      {sidebar && !isNarrow && !folded && (
           <ResizeHandle
             onResizeStart={() => { dragStartWidth.current = sidebarWidth; setIsResizing(true); }}
             onResize={(delta) => setSidebarWidth(Math.max(180, Math.min(400, dragStartWidth.current + delta)))}
@@ -1051,17 +1058,16 @@ export function FileBrowser({
             }}
             onDoubleClick={() => { setSidebarWidth(SIDEBAR_DEFAULT_WIDTH); localStorage.setItem("files-sidebar-width", String(SIDEBAR_DEFAULT_WIDTH)); }}
           />
-        </>
-      ))}
+      )}
 
       <div className="flex flex-col flex-1 min-w-0">
-        <FilesHeader
+        {!workspace && <FilesHeader
           crumbs={crumbs}
           accountLabel={accountLabel}
           onNavigateCrumb={navigateCrumb}
           onNavigateAccountRoot={() => onNavigate("/", "__account_root__")}
           onDropOnCrumb={moveNames}
-          onMenuClick={isNarrow && sidebar ? () => setNarrowSidebarOpen((v) => !v) : undefined}
+          onMenuClick={isNarrow && sidebar && toggleExplorer || undefined}
           menuOpen={narrowSidebarOpen}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
@@ -1080,8 +1086,7 @@ export function FileBrowser({
           compact={isMobile}
           toolsHidden={accountPickerMode}
           selection={selectionActions}
-          workspaceActions={workspace?.actions}
-        />
+        />}
 
         {error && (
           <div role="alert" className="mx-4 mt-3 px-3 py-2 rounded-md bg-destructive/10 text-destructive text-sm flex items-center gap-2">

@@ -123,7 +123,7 @@ afterEach(() => {
 });
 
 describe('file-actions', () => {
-  it('keeps the native file tree beside an inline provider and uses only the existing toolbar', () => {
+  it('keeps the provider canvas edge-to-edge and docks its controls in the native explorer', () => {
     renderBrowser([], vi.fn(), [folder, notes], {
       id: 'workspace', fileId: notes.id,
       content: <article aria-label="Vector workspace">Drawing canvas</article>,
@@ -135,9 +135,61 @@ describe('file-actions', () => {
     expect(screen.getByRole('article', { name: 'Vector workspace' })).toBeInTheDocument();
     const toolbar = screen.getByRole('toolbar', { name: 'toolbar' });
     expect(within(toolbar).getByRole('button', { name: 'Provider save' })).toBeInTheDocument();
+    expect(toolbar.closest('[data-file-explorer]')).not.toBeNull();
+    expect(screen.queryByRole('navigation', { name: 'breadcrumbs' })).toBeNull();
     expect(screen.queryByRole('searchbox')).toBeNull();
     expect(screen.queryByRole('grid')).toBeNull();
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('folds and restores the explorer without remounting the workspace or replacing stored tree preferences', () => {
+    localStorage.setItem('files-sidebar-width', '288');
+    localStorage.setItem('files-sidebar-collapsed', '{"starred":true}');
+    renderBrowser([], vi.fn(), [folder, notes], {
+      id: 'workspace', fileId: notes.id,
+      content: <input aria-label="Unsubmitted drawing" defaultValue="draft" />,
+      actions: <button>Provider save</button>,
+    });
+    const drawing = screen.getByRole('textbox', { name: 'Unsubmitted drawing' });
+    fireEvent.change(drawing, { target: { value: 'unsaved drawing' } });
+    const toggle = document.querySelector('[data-file-explorer-toggle]');
+    expect(toggle).not.toBeNull();
+    fireEvent.click(toggle!);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('navigation', { name: 'folders' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Provider save' })).toBeVisible();
+    expect(screen.getByRole('textbox', { name: 'Unsubmitted drawing' })).toBe(drawing);
+    expect(drawing).toHaveValue('unsaved drawing');
+    expect(document.querySelector('[data-file-explorer]')).toHaveStyle({ width: '40px' });
+    expect(localStorage.getItem('files-explorer-collapsed')).toBe('1');
+    expect(localStorage.getItem('files-sidebar-collapsed')).toBe('{"starred":true}');
+    expect(localStorage.getItem('files-sidebar-width')).toBe('288');
+    fireEvent.click(toggle!);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('navigation', { name: 'folders' })).toBeVisible();
+    expect(document.querySelector('[data-file-explorer]')).toHaveStyle({ width: '288px' });
+    expect(screen.getByRole('textbox', { name: 'Unsubmitted drawing' })).toBe(drawing);
+  });
+
+  it('keeps a folded mobile explorer and provider controls reachable without a workspace top bar', () => {
+    device.isMobile = true;
+    renderBrowser([], vi.fn(), [folder, notes], {
+      id: 'workspace', fileId: notes.id,
+      content: <article aria-label="Reader workspace">Reader</article>,
+      actions: <button>Provider save</button>,
+    });
+    expect(screen.queryByRole('navigation', { name: 'breadcrumbs' })).toBeNull();
+    expect(screen.queryByRole('navigation', { name: 'folders' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Provider save' })).toBeVisible();
+    const canvas = screen.getByRole('article', { name: 'Reader workspace' });
+    const toggle = document.querySelector('[data-file-explorer-toggle]');
+    expect(toggle).not.toBeNull();
+    fireEvent.click(toggle!);
+    expect(screen.getByRole('navigation', { name: 'folders' })).toBeVisible();
+    expect(screen.getByRole('article', { name: 'Reader workspace' })).toBe(canvas);
+    fireEvent.click(toggle!);
+    expect(screen.queryByRole('navigation', { name: 'folders' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Provider save' })).toBeVisible();
   });
   it('routes a file context-menu editor choice to the selected provider rather than its background hook', async () => {
     setPluginActions('office', 'Office', 'file-open-actions', [{ id: 'open', label: 'Open in Office', fileExtensions: ['txt'] }]);

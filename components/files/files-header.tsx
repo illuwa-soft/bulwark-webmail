@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   Menu, ChevronRight, Search, X, ArrowUpDown, Check, LayoutGrid, LayoutList,
@@ -74,12 +74,12 @@ interface FilesHeaderProps {
   /** Hide the tools that only apply to a folder listing (Pro account picker). */
   toolsHidden?: boolean;
   selection: SelectionActions | null;
-  /** Active provider controls reuse this toolbar instead of introducing another header. */
-  workspaceActions?: ReactNode;
 }
 
 const MAX_VISIBLE_CRUMBS = 3;
 
+/** Show folder-list tools only; active document controls belong to the explorer dock.
+ * 폴더 목록 도구만 표시하고 활성 문서 컨트롤은 탐색기 도크에 둡니다. */
 export function FilesHeader({
   crumbs,
   accountLabel,
@@ -105,7 +105,6 @@ export function FilesHeader({
   compact,
   toolsHidden,
   selection,
-  workspaceActions,
 }: FilesHeaderProps) {
   const t = useTranslations("files");
   const sortMenu = useContextMenu<null>();
@@ -116,7 +115,7 @@ export function FilesHeader({
   const headerClass = "flex items-center gap-1 px-3 border-b border-border min-w-0 flex-shrink-0";
   const headerStyle = { paddingBlock: "var(--density-header-py)" };
 
-  if (selection && !workspaceActions) {
+  if (selection) {
     return (
       <div role="toolbar" aria-label={t("selection_actions")} className={cn(headerClass, "bg-accent/40")} style={headerStyle}>
         <Button variant="ghost" size="icon" className="h-8 w-8 -ms-1" onClick={selection.onClear} aria-label={t("clear_selection")} title={t("clear_selection")}>
@@ -227,7 +226,7 @@ export function FilesHeader({
     </div>
   );
 
-  if (compact && searchOpen && !toolsHidden && !workspaceActions) {
+  if (compact && searchOpen && !toolsHidden) {
     return (
       <div className={headerClass} style={headerStyle}>
         {searchField}
@@ -283,8 +282,7 @@ export function FilesHeader({
         </ol>
       </nav>
 
-      {workspaceActions}
-      {!workspaceActions && !toolsHidden && (
+      {!toolsHidden && (
         <div className="flex items-center gap-1 shrink-0">
           {clipboardCount > 0 && (
             <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={onPaste} title={t("paste_here")}>
