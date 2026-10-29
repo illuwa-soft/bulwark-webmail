@@ -5,8 +5,7 @@ import { encryptPayload, decryptPayload } from '@/lib/auth/crypto';
 import type { NativeAccess, GrantedRoot } from './native-files';
 import { userKey, type VaultUser } from './vault';
 
-export const MAX_FILE_GRANT_TTL_SECONDS = 7 * 24 * 60 * 60;
-export type FileGrant = { subject: string; nativeSubject: string; pluginId: string; credentialId: string; backend: string; fingerprint: string; access: NativeAccess; accountId: string; roots: GrantedRoot[]; expiresAt: number };
+export type FileGrant = { subject: string; nativeSubject: string; pluginId: string; credentialId: string; backend: string; fingerprint: string; access: NativeAccess; accountId: string; roots: GrantedRoot[]; expiresAt: number | null };
 export type StoredGrant = FileGrant & { token: string; key: string; loginKey: string };
 export type FileGrantSummary = { granted: boolean; paths: string[]; expiresAt: number | null };
 export const NO_FILE_GRANT: FileGrantSummary = { granted: false, paths: [], expiresAt: null };
@@ -73,7 +72,8 @@ export async function putFileGrant(grant: FileGrant): Promise<FileGrantSummary> 
 export async function readFileGrant(token: string): Promise<StoredGrant | null> {
   if (!/^[A-Za-z0-9_-]{43}$/.test(token)) return null;
   const value = await load('tokens', hash(token));
-  if (!value || value.t !== 'grant' || typeof value.key !== 'string' || !/^[a-f0-9]{64}$/.test(value.key) || typeof value.loginKey !== 'string' || !/^[a-f0-9]{64}$/.test(value.loginKey) || typeof value.expiresAt !== 'number' || value.expiresAt <= Date.now()) return null;
+  if (!value || value.t !== 'grant' || typeof value.key !== 'string' || !/^[a-f0-9]{64}$/.test(value.key) || typeof value.loginKey !== 'string' || !/^[a-f0-9]{64}$/.test(value.loginKey)) return null;
+  if (value.expiresAt !== null && (typeof value.expiresAt !== 'number' || !Number.isSafeInteger(value.expiresAt) || value.expiresAt <= Date.now())) return null;
   const login = await load('logins', value.loginKey);
   if (login?.token !== token || login.key !== value.key) return null;
   const owner = await load('owners', value.key);

@@ -7,7 +7,8 @@ import { resolveCredential } from '@/lib/plugin-secrets/proxy';
 import { CREDENTIAL_ID_RE } from '@/lib/plugin-secrets/credentials';
 import { nativeIdentity, resolveRoots } from '@/lib/plugin-secrets/native-files';
 import { proxySubject } from '@/lib/plugin-secrets/identity';
-import { backendFingerprint, currentFileGrant, putFileGrant, revokeFileGrant, MAX_FILE_GRANT_TTL_SECONDS, NO_FILE_GRANT } from '@/lib/plugin-secrets/file-grants';
+import { backendFingerprint, currentFileGrant, putFileGrant, revokeFileGrant, NO_FILE_GRANT } from '@/lib/plugin-secrets/file-grants';
+import { fileGrantExpiresAt } from '@/lib/plugin-file-grant-policy';
 
 /** Resolve the current native account and an explicitly attested, installed backend.
  * 현재 네이티브 계정과 계정 증명을 선언한 설치 백엔드를 확인합니다. */
@@ -50,10 +51,9 @@ export async function POST(request: NextRequest) {
     if (Buffer.byteLength(raw) > 256 * 1024) return NextResponse.json({ error: 'Scope is too large' }, { status: 413 });
     const body = JSON.parse(raw) as { paths?: unknown; expiresIn?: unknown; expectedOrigin?: unknown };
     if (!Array.isArray(body.paths) || body.paths.length < 1 || body.paths.length > 100 || body.paths.some((value) => typeof value !== 'string') || body.expectedOrigin !== input.backend.origin) return NextResponse.json({ error: 'Invalid or changed scope' }, { status: 400 });
-    const duration = body.expiresIn ?? MAX_FILE_GRANT_TTL_SECONDS;
-    if (typeof duration !== 'number' || !Number.isInteger(duration) || duration < 60 || duration > MAX_FILE_GRANT_TTL_SECONDS) return NextResponse.json({ error: 'Invalid expiry' }, { status: 400 });
+    const expiresAt = fileGrantExpiresAt(body.expiresIn);
     const roots = await resolveRoots(input.identity, [...new Set(body.paths as string[])]);
-    const summary = await putFileGrant({ subject: input.subject, nativeSubject: input.identity.subject, pluginId: input.pluginId, credentialId: input.credentialId, backend: input.backend.origin, fingerprint: backendFingerprint(input.backend.origin, input.backend.secret!), access: { serverUrl: input.access.serverUrl, username: input.access.username, authHeader: input.access.authHeader }, accountId: input.identity.accountId, roots, expiresAt: Date.now() + duration * 1000 });
+    const summary = await putFileGrant({ subject: input.subject, nativeSubject: input.identity.subject, pluginId: input.pluginId, credentialId: input.credentialId, backend: input.backend.origin, fingerprint: backendFingerprint(input.backend.origin, input.backend.secret!), access: { serverUrl: input.access.serverUrl, username: input.access.username, authHeader: input.access.authHeader }, accountId: input.identity.accountId, roots, expiresAt });
     return NextResponse.json(summary, { headers: { 'Cache-Control': 'no-store' } });
   } catch { return NextResponse.json({ error: 'Unable to grant this file scope' }, { status: 400 }); }
 }

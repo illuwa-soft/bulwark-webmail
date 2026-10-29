@@ -4,6 +4,7 @@
 // large downloads and AI answers; uploads report progress.
 
 import type { InstalledPlugin, PluginFileGrant } from '../plugin-types';
+import { fileGrantExpiresAt } from '../plugin-file-grant-policy';
 import { apiFetch, withBasePath } from '../browser-navigation';
 import { requestConnect, forgetCredentials, credentialOverview } from './connect-dialog';
 import { awaitDialog } from './host-dialog';
@@ -331,16 +332,15 @@ export async function proxyFileGrant(plugin: InstalledPlugin, args: unknown[]): 
   return result.grant;
 }
 
-/** Require host-owned consent for exact paths, destination and a bounded background lifetime.
- * 정확한 경로·대상·제한된 백그라운드 기간을 호스트 대화상자로 승인받습니다. */
+/** Require host-owned consent for exact paths, destination and the explicitly requested lifetime.
+ * 정확한 경로·대상·명시적으로 요청한 접근 기간을 호스트 대화상자로 승인받습니다. */
 export async function proxyGrantFiles(plugin: InstalledPlugin, args: unknown[]): Promise<PluginFileGrant> {
   if (IS_LITE) throw new Error('Background file access requires Bulwark Full');
   const { id } = credentialSpec(plugin, args[0]);
   const scope = writeScope(plugin, 'files:read', 'proxy.grantFiles');
   const input = args[1] as { paths?: unknown; expiresIn?: unknown } | undefined;
   if (!Array.isArray(input?.paths) || !input.paths.length || input.paths.length > 100 || input.paths.some((value) => typeof value !== 'string' || !value || value.length > 500 || [...value].some((char) => char.charCodeAt(0) < 32))) throw new Error('Select 1–100 file/folder paths');
-  const expiresIn = input.expiresIn ?? 7 * 24 * 60 * 60;
-  if (typeof expiresIn !== 'number' || !Number.isInteger(expiresIn) || expiresIn < 60 || expiresIn > 7 * 24 * 60 * 60) throw new Error('Expiry must be between one minute and seven days');
+  const expiresAt = fileGrantExpiresAt(input.expiresIn);
   const query = new URLSearchParams({ plugin: plugin.id, credential: id });
   const headers = activeAccountHeaders();
   const preview = await apiFetch(`/api/plugin-file-grants?${query}`, { headers });
@@ -350,10 +350,12 @@ export async function proxyGrantFiles(plugin: InstalledPlugin, args: unknown[]):
   const catalog = await (LOCALE_LOADERS[locale] ?? LOCALE_LOADERS.en)();
   const t = createTranslator({ locale, messages: catalog.plugin_file_grants as typeof enMessages.plugin_file_grants });
   scope.check();
-  const confirmed = await awaitDialog({ pluginId: plugin.id, kind: 'confirm', title: t('title'), message: t('message', { plugin: plugin.name, account: scope.client.getUsername(), origin: info.origin, paths: input.paths.join('\n'), expires: new Date(Date.now() + expiresIn * 1000).toLocaleString(locale) }), confirmLabel: t('allow') });
+  let expires = t('until_revoked');
+  if (expiresAt !== null) expires = new Date(expiresAt).toLocaleString(locale);
+  const confirmed = await awaitDialog({ pluginId: plugin.id, kind: 'confirm', title: t('title'), message: t('message', { plugin: plugin.name, account: scope.client.getUsername(), origin: info.origin, paths: input.paths.join('\n'), expires }), confirmLabel: t('allow') });
   scope.check();
   if (!confirmed) return { granted: false, paths: [], expiresAt: null };
-  const response = await apiFetch(`/api/plugin-file-grants?${query}`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify({ paths: input.paths, expiresIn, expectedOrigin: info.origin }) });
+  const response = await apiFetch(`/api/plugin-file-grants?${query}`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify({ paths: input.paths, expiresIn: input.expiresIn, expectedOrigin: info.origin }) });
   scope.check();
   if (!response.ok) throw new Error('Unable to grant file access');
   const result = await response.json() as PluginFileGrant;

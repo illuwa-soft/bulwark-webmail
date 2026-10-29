@@ -1,5 +1,6 @@
 {
   "plugin_file_grants": {
+    "until_revoked": "indtil du tilbagekalder tilladelsen (uden udløb)",
     "title": "Læs filer i baggrunden",
     "message": "{plugin} · {account} → {origin}\n\nSkrivebeskyttet adgang til:\n{paths}\n\nFortsætter efter vinduet lukkes. Udløber: {expires}. Du kan tilbagekalde adgangen. Den oprindelige kontos loginoplysninger bliver på denne vært.",
     "allow": "Tillad læsning"

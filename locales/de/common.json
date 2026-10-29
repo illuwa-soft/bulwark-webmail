@@ -1,5 +1,6 @@
 {
   "plugin_file_grants": {
+    "until_revoked": "bis zum Widerruf (ohne Ablaufdatum)",
     "title": "Dateien im Hintergrund lesen",
     "message": "{plugin} · {account} → {origin}\n\nNur Lesezugriff auf:\n{paths}\n\nLäuft nach dem Schließen dieses Fensters weiter. Gültig bis: {expires}. Sie können den Zugriff widerrufen. Die Zugangsdaten des nativen Kontos bleiben auf diesem Host.",
     "allow": "Lesezugriff erlauben"

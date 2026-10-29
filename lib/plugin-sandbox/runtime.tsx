@@ -665,10 +665,11 @@ function buildPluginApi(manifest: PluginManifest) {
        */
       accounts: () => callApi('proxy.accounts', []) as Promise<Array<{ credentialId: string; scope: 'user' | 'admin'; origin?: string; username?: string; connected: boolean }>>,
       disconnect: (credentialId: string) => callApi('proxy.disconnect', [credentialId]) as Promise<boolean>,
-      /** Inspect a bounded read grant without exposing its token. */
+      /** Inspect a read grant without exposing its token. */
       fileGrant: (credentialId: string) => callApi('proxy.fileGrant', [credentialId]) as Promise<PluginFileGrant>,
-      /** Ask host consent for background reads of these files/folders (also files:read). */
-      grantFiles: (credentialId: string, options: { paths: string[]; expiresIn?: number }) => callApi('proxy.grantFiles', [credentialId, options], 0) as Promise<PluginFileGrant>,
+      /** Ask host consent for scoped background reads: defaults to seven days; explicit null lasts until revoked.
+       * 범위 기반 백그라운드 읽기를 승인받으며 기본 7일·명시적 null은 철회할 때까지입니다. */
+      grantFiles: (credentialId: string, options: { paths: string[]; expiresIn?: number | null }) => callApi('proxy.grantFiles', [credentialId, options], 0) as Promise<PluginFileGrant>,
       revokeFiles: (credentialId: string) => callApi('proxy.revokeFiles', [credentialId]) as Promise<boolean>,
     },
     // Reading mail (permission: email:read) and keyword mutations

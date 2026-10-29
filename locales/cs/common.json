@@ -1,5 +1,6 @@
 {
   "plugin_file_grants": {
+    "until_revoked": "do odvolání oprávnění (bez vypršení)",
     "title": "Čtení souborů na pozadí",
     "message": "{plugin} · {account} → {origin}\n\nPřístup pouze pro čtení:\n{paths}\n\nPokračuje po zavření okna. Platnost do: {expires}. Přístup lze odvolat. Přihlašovací údaje původního účtu zůstávají na tomto hostiteli.",
     "allow": "Povolit čtení"

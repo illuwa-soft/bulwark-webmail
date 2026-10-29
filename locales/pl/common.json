@@ -1,5 +1,6 @@
 {
   "plugin_file_grants": {
+    "until_revoked": "do odwołania uprawnienia (bez wygaśnięcia)",
     "title": "Odczyt plików w tle",
     "message": "{plugin} · {account} → {origin}\n\nDostęp tylko do odczytu:\n{paths}\n\nDziała po zamknięciu okna. Wygasa: {expires}. Możesz cofnąć dostęp. Dane logowania konta natywnego pozostają na tym hoście.",
     "allow": "Zezwól na odczyt"

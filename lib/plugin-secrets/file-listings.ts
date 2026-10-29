@@ -64,7 +64,7 @@ async function sweep() {
 async function build(identity: NativeIdentity, grant: StoredGrant, binding: string, id: string, state: string): Promise<Snapshot> {
   await sweep();
   const files = await scanResources(identity, grant.roots, state);
-  const snapshot: Snapshot = { binding, id, state, count: files.length, expiresAt: Math.min(grant.expiresAt, Date.now() + FILE_LISTING_TTL_MS) };
+  const snapshot: Snapshot = { binding, id, state, count: files.length, expiresAt: Math.min(grant.expiresAt ?? Infinity, Date.now() + FILE_LISTING_TTL_MS) };
   const dir = snapshotDirectory(binding, id);
   for (let position = 0; position < files.length; position += PAGE_SIZE) {
     identity.signal?.throwIfAborted();

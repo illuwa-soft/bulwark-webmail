@@ -1,5 +1,6 @@
 {
   "plugin_file_grants": {
+    "until_revoked": "visszavonásig (lejárat nélkül)",
     "title": "Fájlok olvasása a háttérben",
     "message": "{plugin} · {account} → {origin}\n\nCsak olvasási hozzáférés:\n{paths}\n\nAz ablak bezárása után is folytatódik. Lejárat: {expires}. A hozzáférés visszavonható. Az eredeti fiók hitelesítő adatai ezen a kiszolgálón maradnak.",
     "allow": "Olvasás engedélyezése"
