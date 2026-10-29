@@ -167,6 +167,15 @@ export function resetProxyLimits(): void {
   running.clear();
 }
 
+/** Apply the same user/plugin budget to server-to-server file callbacks. */
+export function acquireProxySlot(user: VaultUser, pluginId: string): () => void {
+  const who = userKey(user);
+  const slot = takeSlot(who, pluginId);
+  if (!slot.ok) throw Object.assign(new ProxyError('Too many requests', 429, 'rate_limited'), { retryAfter: slot.retryAfter });
+  let released = false;
+  return () => { if (!released) { released = true; releaseSlot(who); } };
+}
+
 // ─── Forwarding ───────────────────────────────────────────────
 
 /** Ask the proxy to store a field of a JSON response as the secret. */
@@ -317,7 +326,7 @@ export async function proxyRequest(input: ProxyInput): Promise<Response> {
     // "No file was submitted". Next has buffered the body for proxy.ts
     // already, up to the same limit (see proxyClientMaxBodySize).
     let body = input.body && method !== 'GET' && method !== 'HEAD'
-      ? await readBody(input.body, MAX_PROXY_REQUEST_BYTES)
+      ? await readProxyBody(input.body, MAX_PROXY_REQUEST_BYTES, signal)
       : null;
     sent = body?.byteLength ?? 0;
     let currentUrl = target.toString();
@@ -404,21 +413,31 @@ export async function proxyRequest(input: ProxyInput): Promise<Response> {
   }
 }
 
-async function readBody(stream: ReadableStream<Uint8Array>, limit: number): Promise<Uint8Array> {
+export async function readProxyBody(stream: ReadableStream<Uint8Array>, limit: number, signal?: AbortSignal): Promise<Uint8Array> {
   const reader = stream.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > limit) {
-      await reader.cancel().catch(() => {});
-      throw new ProxyError('Body too large', 413, 'too_large');
+  const abort = () => { void reader.cancel(signal?.reason).catch(() => {}); };
+  signal?.addEventListener('abort', abort, { once: true });
+  try {
+    for (;;) {
+      signal?.throwIfAborted();
+      const { done, value } = await reader.read();
+      signal?.throwIfAborted();
+      if (done) break;
+      total += value.byteLength;
+      if (total > limit) {
+        await reader.cancel().catch(() => {});
+        throw new ProxyError('Body too large', 413, 'too_large');
+      }
+      chunks.push(value);
     }
-    chunks.push(value);
+    return new Uint8Array(Buffer.concat(chunks));
+  } finally {
+    signal?.removeEventListener('abort', abort);
+    if (signal?.aborted) await reader.cancel().catch(() => {});
+    reader.releaseLock();
   }
-  return new Uint8Array(Buffer.concat(chunks));
 }
 
 async function readCapped(response: Response, limit: number): Promise<string> {

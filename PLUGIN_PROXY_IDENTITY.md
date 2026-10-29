@@ -47,7 +47,7 @@ The host overwrites `X-Bulwark-Identity` with an HS256 JWT signed by the selecte
 credential's shared key. Its claims are:
 
 - `iss`: public Bulwark origin; `aud`: configured backend origin.
-- `sub`: pairwise subject derived from the native server/primary account identity,
+- `sub`: pairwise subject derived from the authenticated login, native server/primary account identity,
   plugin ID and backend origin. Different services/plugins have different subjects.
 - `plugin`, `credential`: the selected manifest identifiers.
 - `iat`, `exp`: Unix seconds, lifetime 60 seconds.
@@ -80,6 +80,10 @@ There are 1–100 relative file/folder paths, each at most 500 characters. Expir
 The host stores native access in its own `SESSION_SECRET`-encrypted files under
 `PLUGIN_SECRETS_DIR/file-grants`. Only an opaque, read-scoped capability reaches
 the backend through a later proxy JWT. Treat it as a secret; do not log it.
+An encrypted login index is used only for local revocation, not to grant reads or
+attest identity. With a valid host login, revocation works while Stalwart is
+unreachable, native authentication has failed, the backend configuration changed,
+or the plugin is disabled. It is idempotent and needs no cooperating backend.
 
 ## Scoped resources (backend only)
 
@@ -88,7 +92,8 @@ POST to `files.url` with `Authorization: Bearer <files.token>`:
 - `{ "operation": "list", "cursor": "<optional nextCursor>" }` returns
   `{ paths, files, nextCursor }`. Each file has `fileId`, `name`, `path`, `mime`,
   `size`, `modified`, `version`. Pages contain at most 200 files; follow every
-  cursor. A changed snapshot is an error, never an apparently complete partial list.
+  cursor. Cursors are opaque and valid for at most five minutes (or grant expiry).
+  A changed snapshot is an error, never an apparently complete partial list.
 - `{ "operation": "read", "fileId": "...", "version": "..." }` streams one
   file after current ACL, scope and content-version checks. The version is opaque.
 
@@ -98,6 +103,52 @@ request. Replacing, revoking or expiring a grant invalidates future reads, inclu
 capabilities already stored by a backend. Account recreation, native authentication
 failure and backend/key changes also require renewed approval. Already delivered
 bytes and existing backend results are not retracted by revocation.
+Callback JSON bodies are capped at 8 KiB before parsing. Callbacks share the
+existing proxy's 300 requests/minute per user/plugin and eight concurrent
+requests per user; a download holds its slot through completion/cancellation.
+Content streams retain the 2 GiB cap and a ten-minute deadline.
+
+## Listing consistency, limits and recovery
+
+The first page scans the approved scope once, using batched native reads. The
+host writes encrypted 200-file pages to the existing host volume and publishes
+snapshot metadata only after the entire scan succeeds. Continuations read one
+encrypted page and batch-check its files and approved roots against live ACLs
+and native FileNode state; they do not rescan the tree. This also rejects ACL
+loss on servers that do not advance state for a rights change. Shared resource accounts do not merge the identities or grants
+of different authenticated logins. Current ACL/version checks still apply to
+individual content reads.
+
+Snapshots last five minutes and survive process restarts when the host volume
+and `SESSION_SECRET` are preserved. Expired cache directories are swept on the
+next new scan, at most once per minute; replacement/revocation removes that
+grant's cached pages. At most four distinct scans are built concurrently in a
+process; duplicate first-page requests share one scan. Multi-instance hosts must
+share the same host data volume and `SESSION_SECRET`, as for the credential vault.
+
+The scope scan is bounded to 100,000 queued nodes, 10,000 directories, depth 64,
+4,096-character derived paths and 16 MiB of file metadata. Native metadata work
+has a 25-second deadline and respects client cancellation. Exceeding a bound is
+an error, not a complete truncated catalogue.
+
+| Status/code | Consumer action |
+| --- | --- |
+| `400 invalid_cursor` | Do not decode/edit/reuse another grant's cursor; start a fresh listing. |
+| `409 cursor_expired` / `snapshot_changed` | Discard all accumulated pages and start again from page one. |
+| `413 listing_too_large` | Narrow the approved scope. |
+| `429 rate_limited` | Honor `Retry-After`; it does not require renewed consent. |
+| `503 listing_busy` | Retry the read after `Retry-After`; do not request new consent. |
+| `504 native_timeout` | Retry the read after checking native connectivity. |
+| `401` / `403` | Check current grant, native authentication and permissions; never fall back to wider access. |
+
+A failed/incomplete scan never publishes a complete snapshot. Consumers should
+commit a catalogue or initial baseline only after `nextCursor` is null. Reads
+can be retried; processing/job writes must retain their own idempotency contract.
+
+Grants/cursors from the earlier, unreleased iteration of this PR are not
+silently migrated: approve the scope again. The hardened pairwise identity also
+includes the login; test backends must treat the resulting subject as a new
+owner rather than joining it by username or trusting a body-supplied identifier.
 
 Lite has no grant routes and rejects these SDK methods. Full retains the existing
 same-origin mutation gate, outgoing URL guards and administrator-controlled

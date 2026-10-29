@@ -64,8 +64,12 @@ export async function DELETE(request: NextRequest) {
   const rejected = rejectCrossOriginRequest(request);
   if (rejected) return rejected;
   try {
-    const input = await context(request);
-    await revokeFileGrant(input.subject, input.pluginId, input.credentialId);
+    const access = await getStalwartCredentials(request);
+    if (!access) return NextResponse.json({ error: 'Host login required' }, { status: 401 });
+    const pluginId = request.nextUrl.searchParams.get('plugin') ?? '';
+    const credentialId = request.nextUrl.searchParams.get('credential') ?? '';
+    if (!/^[a-z0-9][a-z0-9-]*$/.test(pluginId) || !CREDENTIAL_ID_RE.test(credentialId)) return NextResponse.json({ error: 'Invalid credential' }, { status: 400 });
+    await revokeFileGrant(access, pluginId, credentialId);
     return NextResponse.json(NO_FILE_GRANT);
   } catch { return NextResponse.json({ error: 'Unable to revoke file access' }, { status: 403 }); }
 }

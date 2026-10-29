@@ -108,7 +108,9 @@ export type PayloadPurpose =
   /** Account-scoped plugin JSON state in the settings volume. */
   | 'plugin-storage'
   /** Host-only storage of bounded, revocable plugin read capabilities. */
-  | 'plugin-file-grants';
+  | 'plugin-file-grants'
+  | 'plugin-file-listing'
+  | 'plugin-file-page';
 
 /**
  * Whether a blob minted before purposes were bound may be re-admitted for
@@ -131,6 +133,8 @@ const LEGACY_PAYLOAD_MARKERS: Record<PayloadPurpose, (payload: Record<string, un
   'plugin-secrets': () => false,
   'plugin-storage': () => false,
   'plugin-file-grants': () => false,
+  'plugin-file-listing': () => false,
+  'plugin-file-page': () => false,
 };
 
 export function encryptPayload(payload: Record<string, unknown>, purpose: PayloadPurpose): string {

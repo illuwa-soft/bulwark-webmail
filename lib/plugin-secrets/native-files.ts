@@ -2,11 +2,12 @@ import { createHash } from 'node:crypto';
 import { fetchJmapSession, postJmap, rebaseApiUrl } from '@/lib/stalwart/jmap-api';
 import { fetchJmapServer, isTrustedJmapServerUrl } from '@/lib/stalwart/server-fetch';
 import { decodeFileNodeName } from '@/lib/jmap/filenode-name';
+import { FileResourceError } from './file-errors';
 
 const FILES = 'urn:ietf:params:jmap:filenode';
 const MAIL = 'urn:ietf:params:jmap:mail';
 export type NativeAccess = { serverUrl: string; username: string; authHeader: string };
-export type NativeIdentity = { subject: string; accountId: string; access: NativeAccess; apiUrl: string; downloadUrl: string; trusted: boolean; pageSize: number };
+export type NativeIdentity = { subject: string; accountId: string; access: NativeAccess; apiUrl: string; downloadUrl: string; trusted: boolean; pageSize: number; signal?: AbortSignal };
 type Node = { id: string; parentId: string | null; name: string; type: string; blobId: string | null; size: number; modified: string };
 export type GrantedRoot = { id: string; path: string; directory: boolean };
 export type ResourceFile = { fileId: string; name: string; path: string; mime: string; size: number; modified: string; version: string };
@@ -14,9 +15,10 @@ const properties = ['id', 'parentId', 'name', 'type', 'blobId', 'size', 'modifie
 
 /** Resolve native identity on the host; passwords/tokens stay in this process.
  * 호스트에서 네이티브 계정을 확인하며 비밀번호·토큰은 호스트 안에 둡니다. */
-export async function nativeIdentity(access: NativeAccess): Promise<NativeIdentity> {
+export async function nativeIdentity(access: NativeAccess, signal?: AbortSignal): Promise<NativeIdentity> {
   const trusted = await isTrustedJmapServerUrl(access.serverUrl);
-  const session = await fetchJmapSession(access.serverUrl, access.authHeader, { trusted });
+  const session = await fetchJmapSession(access.serverUrl, access.authHeader, { trusted, signal });
+  signal?.throwIfAborted();
   const primary = session?.primaryAccounts ?? {};
   const principal = primary[MAIL] ?? primary[FILES] ?? Object.values(primary)[0];
   const apiUrl = rebaseApiUrl(session, access.serverUrl);
@@ -25,28 +27,37 @@ export async function nativeIdentity(access: NativeAccess): Promise<NativeIdenti
   const template = (session as { downloadUrl?: string } | null)?.downloadUrl ?? '/jmap/download/{accountId}/{blobId}/{name}?accept={type}';
   const path = template.replace(/^[a-z]+:\/\/[^/]+/i, '');
   return {
-    subject: createHash('sha256').update(JSON.stringify([access.serverUrl.replace(/\/+$/, ''), principal])).digest('hex'),
+    subject: createHash('sha256').update(JSON.stringify([access.serverUrl.replace(/\/+$/, ''), access.username, principal])).digest('hex'),
     accountId: primary[FILES] ?? primary[MAIL] ?? '', access, apiUrl, trusted,
     downloadUrl: new URL(access.serverUrl).origin + '/' + path.replace(/^\/+/, ''),
     pageSize: Math.max(1, Math.min(200, core?.maxObjectsInGet ?? 200)),
+    signal,
   };
 }
 
 /** Run fixed FileNode methods using the existing redirect- and rebinding-safe transport.
  * 기존 리다이렉트·DNS 보호 전송으로 고정된 FileNode 메서드를 호출합니다. */
-async function call(identity: NativeIdentity, method: string, args: Record<string, unknown>): Promise<Record<string, unknown>> {
-  const response = await postJmap(identity.apiUrl, identity.access.authHeader, JSON.stringify({ using: ['urn:ietf:params:jmap:core', FILES], methodCalls: [[method, { accountId: identity.accountId, ...args }, '0']] }), { trusted: identity.trusted });
+async function call(identity: NativeIdentity, method: string, args: Record<string, unknown>, expectedState?: string): Promise<Record<string, unknown>> {
+  const response = await postJmap(identity.apiUrl, identity.access.authHeader, JSON.stringify({ using: ['urn:ietf:params:jmap:core', FILES], methodCalls: [[method, { accountId: identity.accountId, ...args }, '0']] }), { trusted: identity.trusted, signal: identity.signal });
   if (!response.ok) throw new Error('Native file request failed');
   const result = await response.json() as { methodResponses?: [string, Record<string, unknown>, string][] };
   const entry = result.methodResponses?.[0];
   if (!entry || entry[0] !== method) throw new Error('Native file method failed');
+  if (expectedState !== undefined && entry[1].state !== expectedState) throw new FileResourceError('snapshot_changed', 409);
   return entry[1];
+}
+
+/** A cheap account-wide FileNode state check detects ACL/content changes between pages. */
+export async function nativeFileState(identity: NativeIdentity): Promise<string> {
+  const result = await call(identity, 'FileNode/get', { ids: [], properties: ['id'] });
+  if (typeof result.state !== 'string' || !result.state || result.state.length > 2048) throw new Error('Native file state is unavailable');
+  return result.state;
 }
 
 /** Read a primary-account node under current native ACLs.
  * 현재 네이티브 ACL로 기본 계정의 노드를 읽습니다. */
-async function node(identity: NativeIdentity, id: string): Promise<Node> {
-  const result = await call(identity, 'FileNode/get', { ids: [id], properties });
+async function node(identity: NativeIdentity, id: string, expectedState?: string): Promise<Node> {
+  const result = await call(identity, 'FileNode/get', { ids: [id], properties }, expectedState);
   const value = (result.list as Node[] | undefined)?.[0];
   if (!value || value.id !== id || id.includes(':')) throw new Error('File is not accessible');
   return { ...value, name: decodeFileNodeName(value.name), modified: value.modified ?? '', size: value.size ?? 0 };
@@ -54,7 +65,7 @@ async function node(identity: NativeIdentity, id: string): Promise<Node> {
 
 /** Exhaust each native directory page, including server-clamped page sizes.
  * 서버가 페이지 크기를 줄인 경우도 디렉터리의 모든 페이지를 읽습니다. */
-async function children(identity: NativeIdentity, parentId: string | null): Promise<Node[]> {
+async function children(identity: NativeIdentity, parentId: string | null, expectedState?: string): Promise<Node[]> {
   let filter: Record<string, unknown> = { parentId };
   if (parentId === null) filter = { isTopLevel: true };
   const result: Node[] = [];
@@ -71,11 +82,12 @@ async function children(identity: NativeIdentity, parentId: string | null): Prom
       seen.add(id);
     }
     if (ids.length) {
-      const data = await call(identity, 'FileNode/get', { ids, properties });
+      const data = await call(identity, 'FileNode/get', { ids, properties }, expectedState);
       const list = data.list as Node[];
       if (!Array.isArray(list) || list.length !== ids.length) throw new Error('Incomplete native file page');
+      if (new Set(list.map((value) => value.id)).size !== ids.length) throw new Error('Repeated native file result');
       for (const value of list) {
-        if ((value.parentId ?? null) !== parentId) throw new Error('Native directory changed');
+        if (!ids.includes(value.id) || value.id.includes(':') || (value.parentId ?? null) !== parentId) throw new Error('Native directory changed');
         result.push({ ...value, name: decodeFileNodeName(value.name), modified: value.modified ?? '', size: value.size ?? 0 });
       }
     }
@@ -110,34 +122,56 @@ export async function resolveRoots(identity: NativeIdentity, paths: string[]): P
 function fileVersion(value: Node): string { return createHash('sha256').update(JSON.stringify([value.id, value.blobId])).digest('hex'); }
 function resource(value: Node, path: string): ResourceFile { return { fileId: value.id, name: value.name, path, mime: value.type, size: value.size, modified: value.modified, version: fileVersion(value) }; }
 
+/** Check this page and its approved roots against live ACLs, even if ACL changes do not advance native state. */
+export async function verifyResourcePage(identity: NativeIdentity, roots: GrantedRoot[], files: ResourceFile[], expectedState: string) {
+  const ids = [...new Set([...roots.map((root) => root.id), ...files.map((file) => file.fileId)])];
+  const current = new Map<string, Node>();
+  for (let position = 0; position < ids.length; position += identity.pageSize) {
+    const selected = ids.slice(position, position + identity.pageSize);
+    const result = await call(identity, 'FileNode/get', { ids: selected, properties }, expectedState);
+    const list = result.list as Node[];
+    if (!Array.isArray(list) || list.length !== selected.length || new Set(list.map((value) => value.id)).size !== selected.length) throw new FileResourceError('snapshot_changed', 409);
+    for (const value of list) {
+      if (!selected.includes(value.id)) throw new FileResourceError('snapshot_changed', 409);
+      current.set(value.id, value);
+    }
+  }
+  for (const file of files) {
+    const value = current.get(file.fileId)!;
+    if (fileVersion(value) !== file.version || decodeFileNodeName(value.name) !== file.name || value.type !== file.mime || (value.size ?? 0) !== file.size || (value.modified ?? '') !== file.modified) throw new FileResourceError('snapshot_changed', 409);
+  }
+}
+
 /** List only explicitly granted files/folders; no account-wide catalogue leaves the host.
  * 명시적으로 승인한 파일·폴더만 열거하며 계정 전체 목록을 외부로 보내지 않습니다. */
-export async function listResources(identity: NativeIdentity, roots: GrantedRoot[], cursor?: string) {
+export const MAX_FILE_LISTING_BYTES = 16 * 1024 * 1024;
+export async function scanResources(identity: NativeIdentity, roots: GrantedRoot[], expectedState: string) {
   const files = new Map<string, ResourceFile>();
   const directories = new Set<string>();
-  const queue = [...roots];
-  while (queue.length) {
-    const root = queue.shift()!;
-    const value = await node(identity, root.id);
-    if (value.blobId && value.type !== 'd') { files.set(value.id, resource(value, root.path)); continue; }
-    if (directories.has(root.id)) continue;
-    if (!root.directory || directories.size >= 10000) throw new Error('Invalid or oversized directory scope');
-    directories.add(root.id);
-    for (const child of await children(identity, root.id)) queue.push({ id: child.id, path: `${root.path}/${child.name}`, directory: !child.blobId || child.type === 'd' });
-    if (queue.length + files.size > 100000) throw new Error('Resource listing limit exceeded');
+  const queue: { value: Node; path: string; depth: number; directory: boolean }[] = [];
+  let bytes = 0;
+  for (const root of roots) queue.push({ value: await node(identity, root.id, expectedState), path: root.path, depth: 0, directory: root.directory });
+  for (let position = 0; position < queue.length; position++) {
+    identity.signal?.throwIfAborted();
+    const { value, path, depth, directory } = queue[position];
+    if (depth > 64 || path.length > 4096) throw new FileResourceError('listing_too_large', 413);
+    if (value.blobId && value.type !== 'd') {
+      if (files.has(value.id)) continue;
+      const file = resource(value, path);
+      bytes += Buffer.byteLength(JSON.stringify(file));
+      if (bytes > MAX_FILE_LISTING_BYTES) throw new FileResourceError('listing_too_large', 413);
+      files.set(value.id, file);
+      continue;
+    }
+    if (!directory) throw new Error('Granted file became a directory');
+    if (directories.has(value.id)) continue;
+    if (directories.size >= 10000) throw new FileResourceError('listing_too_large', 413);
+    directories.add(value.id);
+    for (const child of await children(identity, value.id, expectedState)) queue.push({ value: child, path: `${path}/${child.name}`, depth: depth + 1, directory: !child.blobId || child.type === 'd' });
+    if (queue.length > 100000) throw new FileResourceError('listing_too_large', 413);
   }
-  const ordered = [...files.values()].sort((a, b) => a.fileId.localeCompare(b.fileId));
-  const state = createHash('sha256').update(JSON.stringify(ordered)).digest('hex');
-  let position = 0;
-  if (cursor) {
-    const decoded = JSON.parse(Buffer.from(cursor, 'base64url').toString()) as { state: string; position: number };
-    if (decoded.state !== state || !Number.isSafeInteger(decoded.position) || decoded.position < 0) throw new Error('Resource snapshot changed');
-    position = decoded.position;
-  }
-  const page = ordered.slice(position, position + 200);
-  let nextCursor: string | null = null;
-  if (position + page.length < ordered.length) nextCursor = Buffer.from(JSON.stringify({ state, position: position + page.length })).toString('base64url');
-  return { files: page, nextCursor };
+  if (await nativeFileState(identity) !== expectedState) throw new FileResourceError('snapshot_changed', 409);
+  return [...files.values()].sort((a, b) => a.fileId.localeCompare(b.fileId));
 }
 
 /** Recheck parent membership, ACL and content version before streaming one granted file.
