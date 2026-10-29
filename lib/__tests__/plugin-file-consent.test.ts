@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { InstalledPlugin } from '@/lib/plugin-types';
 import { useAccountStore } from '@/stores/account-store';
 import { useAuthStore } from '@/stores/auth-store';
+import { useLocaleStore } from '@/stores/locale-store';
 import { head, resolveHead, cancelForPlugin, resetDialogLimits } from '@/lib/plugin-sandbox/host-dialog';
 import { proxyFetch, proxyGrantFiles, proxyFileGrant, proxyRevokeFiles } from '@/lib/plugin-sandbox/proxy-client';
 
@@ -22,9 +23,26 @@ beforeEach(() => {
   useAuthStore.setState({ client: client as never });
   vi.spyOn(useAccountStore.getState(), 'getActiveAccount').mockReturnValue({ cookieSlot: 2 } as never);
 });
-afterEach(() => { cancelForPlugin(plugin.id); vi.restoreAllMocks(); useAuthStore.setState({ client: null }); });
+afterEach(() => { cancelForPlugin(plugin.id); vi.restoreAllMocks(); useAuthStore.setState({ client: null }); useLocaleStore.setState({ locale: '' }); document.documentElement.lang = ''; });
 
 describe('host-owned background read consent', () => {
+  it('opens consent in the effective UI language when the preference is automatic', async () => {
+    useLocaleStore.setState({ locale: 'auto' });
+    document.documentElement.lang = 'ko';
+    apiFetch.mockResolvedValue(Response.json({ origin: 'https://processor.example' }));
+    const rejected = vi.fn();
+    const pending = proxyGrantFiles(plugin, ['processor', { paths: ['documents'], expiresIn: 60 }]);
+    void pending.catch(rejected);
+    await vi.waitFor(() => {
+      expect(rejected).not.toHaveBeenCalled();
+      expect(head()?.title).toBe('백그라운드 파일 읽기 승인');
+    });
+    expect(apiFetch).toHaveBeenCalledTimes(1);
+    resolveHead(false);
+    expect((await pending).granted).toBe(false);
+    expect(apiFetch.mock.calls.every(([, init]) => !init.method)).toBe(true);
+  });
+
   it('does not mint access on inspection or cancellation, and shows account, destination, scope and expiry', async () => {
     apiFetch.mockImplementation(async () => Response.json({ origin: 'https://processor.example', grant: { granted: false, paths: [], expiresAt: null } }));
     expect((await proxyFileGrant(plugin, ['processor'])).granted).toBe(false);
