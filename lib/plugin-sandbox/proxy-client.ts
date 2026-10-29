@@ -12,8 +12,7 @@ import { useAccountStore } from '@/stores/account-store';
 import { IS_LITE } from '../lite';
 import { createTranslator } from 'next-intl';
 import { LOCALE_LOADERS } from '@/components/providers/intl-provider';
-import { useLocaleStore } from '@/stores/locale-store';
-import { detectBrowserLocale } from '@/i18n/detect-locale';
+import { getEffectiveLocale } from '@/i18n/detect-locale';
 import type enMessages from '@/locales/en/common.json';
 
 /** Pin requests to the active host cookie slot; a sandbox cannot select another account.
@@ -347,7 +346,7 @@ export async function proxyGrantFiles(plugin: InstalledPlugin, args: unknown[]):
   const preview = await apiFetch(`/api/plugin-file-grants?${query}`, { headers });
   if (!preview.ok) throw new Error('File delegation is unavailable');
   const info = await preview.json() as { origin: string };
-  const locale = useLocaleStore.getState().locale || detectBrowserLocale('en');
+  const locale = getEffectiveLocale();
   const catalog = await (LOCALE_LOADERS[locale] ?? LOCALE_LOADERS.en)();
   const t = createTranslator({ locale, messages: catalog.plugin_file_grants as typeof enMessages.plugin_file_grants });
   scope.check();
