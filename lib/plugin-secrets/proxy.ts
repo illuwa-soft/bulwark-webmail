@@ -12,6 +12,7 @@ import { DisallowedUrlError, fetchPublicUrl } from '@/lib/security/url-guard';
 import { authHeaderFor, credentialOrigin, privateProxyOrigins, type CredentialInject, type CredentialSpec } from './credentials';
 import { getUserCredential, setUserCredentialSecret, userKey, type VaultUser } from './vault';
 import { declaredUserCredential } from './known-plugins';
+import { signProxyIdentity, type ProxyIdentityContext } from './identity';
 
 /** Largest request body the proxy forwards (one upload chunk); see proxyClientMaxBodySize in next.config.ts. */
 export const MAX_PROXY_REQUEST_BYTES = 100 * 1024 * 1024;
@@ -38,7 +39,7 @@ const DROP_REQUEST_HEADERS = new Set([
   'keep-alive', 'te', 'trailer', 'transfer-encoding', 'upgrade', 'forwarded', 'via',
   'content-length', 'accept-encoding', 'expect', 'priority',
 ]);
-const DROP_REQUEST_PREFIXES = ['x-forwarded-', 'x-real-', 'sec-', 'proxy-', 'x-bulwark-', 'cf-'];
+const DROP_REQUEST_PREFIXES = ['x-forwarded-', 'x-real-', 'sec-', 'proxy-', 'x-bulwark-', 'x-jmap-', 'cf-'];
 
 /** Response headers passed back to the plugin. */
 const PASS_RESPONSE_HEADERS = new Set([
@@ -54,6 +55,7 @@ export class ProxyError extends Error {
 }
 
 export interface ResolvedCredential {
+  attestUser?: boolean;
   origin: string;
   inject: CredentialInject;
   secret?: string;
@@ -88,13 +90,14 @@ export async function resolveCredential(user: VaultUser, pluginId: string, crede
   const origin = spec.origin ?? credentialOrigin(spec.originKey ? config[spec.originKey] : undefined);
   // A credential that adds nothing (a keyless service such as a local Ollama)
   // needs only its server.
-  const needsSecret = spec.inject.type !== 'none';
+  const needsSecret = spec.inject.type !== 'none' || spec.attestUser;
   if (!origin || (needsSecret && (typeof secret !== 'string' || !secret))) return null;
   const username = spec.usernameKey ? config[spec.usernameKey] : undefined;
   return {
     origin, inject: spec.inject, secret: typeof secret === 'string' && secret ? secret : undefined,
     username: typeof username === 'string' ? username : undefined,
     trusted: true, scope: 'admin',
+    attestUser: spec.attestUser,
   };
 }
 
@@ -164,6 +167,15 @@ export function resetProxyLimits(): void {
   running.clear();
 }
 
+/** Apply the same user/plugin budget to server-to-server file callbacks. */
+export function acquireProxySlot(user: VaultUser, pluginId: string): () => void {
+  const who = userKey(user);
+  const slot = takeSlot(who, pluginId);
+  if (!slot.ok) throw Object.assign(new ProxyError('Too many requests', 429, 'rate_limited'), { retryAfter: slot.retryAfter });
+  let released = false;
+  return () => { if (!released) { released = true; releaseSlot(who); } };
+}
+
 // ─── Forwarding ───────────────────────────────────────────────
 
 /** Ask the proxy to store a field of a JSON response as the secret. */
@@ -175,6 +187,7 @@ export interface CaptureSpec {
 }
 
 export interface ProxyInput {
+  identity?: ProxyIdentityContext;
   user: VaultUser;
   pluginId: string;
   credentialId: string;
@@ -273,7 +286,7 @@ export async function proxyRequest(input: ProxyInput): Promise<Response> {
   if (!credential) throw new ProxyError('No such credential', 404, 'no_credential');
 
   let target: URL;
-  try { target = new URL(input.url); } catch { throw new ProxyError('Invalid URL', 400, 'bad_url'); }
+  try { target = new URL(input.url, credential.origin); } catch { throw new ProxyError('Invalid URL', 400, 'bad_url'); }
   if (target.origin !== credential.origin || target.username || target.password) {
     throw new ProxyError('This credential is only for its own server', 403, 'wrong_origin');
   }
@@ -304,12 +317,16 @@ export async function proxyRequest(input: ProxyInput): Promise<Response> {
 
   try {
     const headers = forwardHeaders(input.headers, credential);
+    if (credential.attestUser) {
+      if (!input.identity || !credential.secret) throw new ProxyError('Native identity is required', 401, 'identity_required');
+      headers['x-bulwark-identity'] = await signProxyIdentity(input.identity, input.pluginId, input.credentialId, credential.origin, credential.secret);
+    }
     // Read the whole body first and send it with a Content-Length. Streamed
     // (chunked) uploads reach some servers empty: Paperless (Django) answers
     // "No file was submitted". Next has buffered the body for proxy.ts
     // already, up to the same limit (see proxyClientMaxBodySize).
     let body = input.body && method !== 'GET' && method !== 'HEAD'
-      ? await readBody(input.body, MAX_PROXY_REQUEST_BYTES)
+      ? await readProxyBody(input.body, MAX_PROXY_REQUEST_BYTES, signal)
       : null;
     sent = body?.byteLength ?? 0;
     let currentUrl = target.toString();
@@ -396,21 +413,31 @@ export async function proxyRequest(input: ProxyInput): Promise<Response> {
   }
 }
 
-async function readBody(stream: ReadableStream<Uint8Array>, limit: number): Promise<Uint8Array> {
+export async function readProxyBody(stream: ReadableStream<Uint8Array>, limit: number, signal?: AbortSignal): Promise<Uint8Array> {
   const reader = stream.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > limit) {
-      await reader.cancel().catch(() => {});
-      throw new ProxyError('Body too large', 413, 'too_large');
+  const abort = () => { void reader.cancel(signal?.reason).catch(() => {}); };
+  signal?.addEventListener('abort', abort, { once: true });
+  try {
+    for (;;) {
+      signal?.throwIfAborted();
+      const { done, value } = await reader.read();
+      signal?.throwIfAborted();
+      if (done) break;
+      total += value.byteLength;
+      if (total > limit) {
+        await reader.cancel().catch(() => {});
+        throw new ProxyError('Body too large', 413, 'too_large');
+      }
+      chunks.push(value);
     }
-    chunks.push(value);
+    return new Uint8Array(Buffer.concat(chunks));
+  } finally {
+    signal?.removeEventListener('abort', abort);
+    if (signal?.aborted) await reader.cancel().catch(() => {});
+    reader.releaseLock();
   }
-  return new Uint8Array(Buffer.concat(chunks));
 }
 
 async function readCapped(response: Response, limit: number): Promise<string> {

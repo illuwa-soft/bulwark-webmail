@@ -1,4 +1,9 @@
 {
+  "plugin_file_grants": {
+    "title": "Dateien im Hintergrund lesen",
+    "message": "{plugin} · {account} → {origin}\n\nNur Lesezugriff auf:\n{paths}\n\nLäuft nach dem Schließen dieses Fensters weiter. Gültig bis: {expires}. Sie können den Zugriff widerrufen. Die Zugangsdaten des nativen Kontos bleiben auf diesem Host.",
+    "allow": "Lesezugriff erlauben"
+  },
   "meta_description": "Minimalistischer Webmail-Client mit JMAP-Protokoll",
   "login": {
     "title": "Webmail",

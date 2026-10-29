@@ -1,4 +1,9 @@
 {
+  "plugin_file_grants": {
+    "title": "Leitura de ficheiros em segundo plano",
+    "message": "{plugin} · {account} → {origin}\n\nAcesso só de leitura a:\n{paths}\n\nContinua após fechar esta janela. Expira: {expires}. Pode revogar o acesso. As credenciais da conta nativa permanecem neste servidor.",
+    "allow": "Permitir leitura"
+  },
   "meta_description": "Cliente de webmail minimalista que usa o protocolo JMAP",
   "login": {
     "title": "Webmail",

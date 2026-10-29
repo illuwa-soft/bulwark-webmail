@@ -1,4 +1,9 @@
 {
+  "plugin_file_grants": {
+    "title": "Lettura dei file in background",
+    "message": "{plugin} · {account} → {origin}\n\nAccesso in sola lettura a:\n{paths}\n\nContinua dopo la chiusura di questa finestra. Scadenza: {expires}. Puoi revocare l’accesso. Le credenziali dell’account nativo restano su questo host.",
+    "allow": "Consenti lettura"
+  },
   "meta_description": "Client di posta web minimalista che utilizza il protocollo JMAP",
   "login": {
     "title": "Webmail",

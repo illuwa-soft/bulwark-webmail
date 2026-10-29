@@ -1,4 +1,9 @@
 {
+  "plugin_file_grants": {
+    "title": "Bestanden op de achtergrond lezen",
+    "message": "{plugin} · {account} → {origin}\n\nAlleen-lezen toegang tot:\n{paths}\n\nGaat door als dit venster wordt gesloten. Verloopt: {expires}. U kunt de toegang intrekken. De inloggegevens van het oorspronkelijke account blijven op deze host.",
+    "allow": "Leestoegang toestaan"
+  },
   "meta_description": "Minimalistische webmailclient die het JMAP-protocol gebruikt",
   "login": {
     "title": "Webmail",

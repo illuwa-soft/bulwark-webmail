@@ -624,6 +624,14 @@ export interface FileResourceView {
   modified: string;
 }
 
+/** Public background-read consent metadata; capability tokens are server-to-server only. */
+export interface PluginFileGrant {
+  granted: boolean;
+  paths: string[];
+  /** UTC Unix milliseconds, null when there is no live grant. */
+  expiresAt: number | null;
+}
+
 export interface IdentityView {
   id: string;
   name: string;

@@ -75,6 +75,15 @@ describe('encryptSession / decryptSession', () => {
 });
 
 describe('encryptPayload / decryptPayload', () => {
+  it.each(['plugin-file-grants', 'plugin-file-listing', 'plugin-file-page'] as const)('keeps %s isolated from session and other file envelopes', (purpose) => {
+    const payload = encryptPayload({ t: 'fixture', value: 'private' }, purpose);
+    expect(decryptPayload(payload, purpose)).toMatchObject({ t: 'fixture', value: 'private' });
+    expect(decryptPayload(payload, 'session-context')).toBeNull();
+    for (const other of ['plugin-file-grants', 'plugin-file-listing', 'plugin-file-page'] as const) {
+      if (other !== purpose) expect(decryptPayload(payload, other)).toBeNull();
+    }
+  });
+
   it('round-trips an arbitrary object and stamps the purpose', () => {
     const token = encryptPayload({ a: 1, b: 'two', c: { nested: true } }, 'sso-pending');
     expect(decryptPayload(token, 'sso-pending')).toEqual({

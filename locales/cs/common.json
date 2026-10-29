@@ -1,4 +1,9 @@
 {
+  "plugin_file_grants": {
+    "title": "Čtení souborů na pozadí",
+    "message": "{plugin} · {account} → {origin}\n\nPřístup pouze pro čtení:\n{paths}\n\nPokračuje po zavření okna. Platnost do: {expires}. Přístup lze odvolat. Přihlašovací údaje původního účtu zůstávají na tomto hostiteli.",
+    "allow": "Povolit čtení"
+  },
   "meta_description": "Minimalistický webmailový klient využívající protokol JMAP",
   "login": {
     "title": "Webmail",

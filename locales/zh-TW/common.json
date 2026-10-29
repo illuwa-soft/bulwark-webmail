@@ -1,4 +1,9 @@
 {
+  "plugin_file_grants": {
+    "title": "背景檔案讀取授權",
+    "message": "{plugin} · {account} → {origin}\n\n僅可讀取以下範圍：\n{paths}\n\n關閉此視窗後仍會繼續。到期時間：{expires}。您可以撤銷存取權限。原生帳號憑證僅保留在此主機上。",
+    "allow": "允許讀取"
+  },
   "meta_description": "使用 JMAP 通訊協定的極簡網頁郵件用戶端",
   "login": {
     "title": "網頁郵件",

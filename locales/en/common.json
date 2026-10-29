@@ -1,4 +1,9 @@
 {
+  "plugin_file_grants": {
+    "title": "Background file read access",
+    "message": "{plugin} · {account} → {origin}\n\nRead-only access to:\n{paths}\n\nContinues when this window is closed. Expires: {expires}. You can revoke this access. Native account credentials stay on this host.",
+    "allow": "Allow read access"
+  },
   "meta_description": "Minimalist webmail client using JMAP protocol",
   "login": {
     "title": "Webmail",

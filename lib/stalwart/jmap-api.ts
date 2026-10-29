@@ -27,6 +27,7 @@ const MAX_REDIRECTS = 3;
  */
 export interface JmapFetchOptions {
   trusted?: boolean;
+  signal?: AbortSignal;
 }
 
 export interface JmapSessionDocument {
@@ -73,6 +74,7 @@ export async function postJmap(
       },
       body,
       redirect: 'manual',
+      signal: options.signal,
     }, options.trusted);
 
     if (response.status < 300 || response.status >= 400) {
@@ -111,6 +113,7 @@ export async function fetchJmapSession(
         method: 'GET',
         headers: { Authorization: authHeader },
         redirect: 'follow',
+        signal: options.signal,
       }, options.trusted);
       if (!res.ok) continue;
       const session = (await res.json()) as JmapSessionDocument;
