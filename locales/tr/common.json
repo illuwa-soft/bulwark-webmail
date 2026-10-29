@@ -1,5 +1,6 @@
 {
   "plugin_file_grants": {
+    "until_revoked": "siz iptal edene kadar (süre sınırı yok)",
     "title": "Arka planda dosya okuma izni",
     "message": "{plugin} · {account} → {origin}\n\nSalt okunur erişim kapsamı:\n{paths}\n\nBu pencere kapatıldıktan sonra devam eder. Bitiş: {expires}. Erişimi iptal edebilirsiniz. Yerel hesap kimlik bilgileri bu sunucuda kalır.",
     "allow": "Okumaya izin ver"

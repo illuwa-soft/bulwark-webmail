@@ -1,5 +1,6 @@
 {
   "plugin_file_grants": {
+    "until_revoked": "jusqu’à révocation (sans expiration)",
     "title": "Lecture des fichiers en arrière-plan",
     "message": "{plugin} · {account} → {origin}\n\nAccès en lecture seule à :\n{paths}\n\nContinue après la fermeture de cette fenêtre. Expiration : {expires}. Vous pouvez révoquer cet accès. Les identifiants du compte natif restent sur cet hôte.",
     "allow": "Autoriser la lecture"

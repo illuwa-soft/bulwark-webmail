@@ -1,5 +1,6 @@
 {
   "plugin_file_grants": {
+    "until_revoked": "直到您撤销授权（无到期日）",
     "title": "后台文件读取授权",
     "message": "{plugin} · {account} → {origin}\n\n仅可读取以下范围：\n{paths}\n\n关闭此窗口后仍会继续。到期时间：{expires}。您可以撤销访问权限。原生账户凭据仅保留在此主机上。",
     "allow": "允许读取"

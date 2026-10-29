@@ -1,5 +1,6 @@
 {
   "plugin_file_grants": {
+    "until_revoked": "until you revoke it (no expiry)",
     "title": "Background file read access",
     "message": "{plugin} · {account} → {origin}\n\nRead-only access to:\n{paths}\n\nContinues when this window is closed. Expires: {expires}. You can revoke this access. Native account credentials stay on this host.",
     "allow": "Allow read access"

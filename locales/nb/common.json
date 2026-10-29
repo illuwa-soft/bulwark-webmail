@@ -1,5 +1,6 @@
 {
   "plugin_file_grants": {
+    "until_revoked": "til du trekker tilbake tillatelsen (uten utløp)",
     "title": "Les filer i bakgrunnen",
     "message": "{plugin} · {account} → {origin}\n\nKun lesetilgang til:\n{paths}\n\nFortsetter når vinduet lukkes. Utløper: {expires}. Du kan trekke tilbake tilgangen. Påloggingsinformasjonen til den opprinnelige kontoen blir på denne verten.",
     "allow": "Tillat lesing"

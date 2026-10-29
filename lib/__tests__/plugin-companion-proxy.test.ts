@@ -134,6 +134,21 @@ async function resource(token: string, body: object, signal?: AbortSignal) {
 }
 
 describe('generic companion backends', () => {
+  it('keeps explicitly non-expiring approval beyond seven days with short identity proofs and immediate revocation', async () => {
+    const response = await grant(management('document-ocr', 'POST', { paths: ['documents'], expiresIn: null, expectedOrigin: services['document-ocr'].origin }));
+    expect(await response.json()).toEqual({ granted: true, paths: ['documents'], expiresAt: null });
+    const claims = await backend('document-ocr');
+    expect(claims.exp - claims.iat).toBe(60);
+    const later = vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 8 * 24 * 3600 * 1000);
+    try {
+      expect((await (await grantInfo(management())).json()).grant).toEqual({ granted: true, paths: ['documents'], expiresAt: null });
+      const listing = await (await resource(claims.files!.token, { operation: 'list' })).json();
+      expect(listing.files.map((file: { fileId: string }) => file.fileId)).toEqual(['report']);
+      await revoke(management('document-ocr', 'DELETE'));
+      expect((await resource(claims.files!.token, { operation: 'list' })).status).toBe(401);
+    } finally { later.mockRestore(); }
+  });
+
   it('uses the same API for OCR and image indexing, with destination-bound pairwise identities and no native secret', async () => {
     const ocr = await backend('document-ocr');
     const photo = await backend('photo-index');

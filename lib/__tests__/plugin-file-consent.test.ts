@@ -26,6 +26,21 @@ beforeEach(() => {
 afterEach(() => { cancelForPlugin(plugin.id); vi.restoreAllMocks(); useAuthStore.setState({ client: null }); useLocaleStore.setState({ locale: '' }); document.documentElement.lang = ''; });
 
 describe('host-owned background read consent', () => {
+  it('shows an explicit until-revoked scope in automatic Korean and still requires confirmation', async () => {
+    useLocaleStore.setState({ locale: 'auto' });
+    document.documentElement.lang = 'ko';
+    apiFetch.mockImplementation(async (_url, init) => {
+      if (init.method === 'POST') return Response.json({ granted: true, paths: ['documents'], expiresAt: null });
+      return Response.json({ origin: 'https://processor.example' });
+    });
+    const pending = proxyGrantFiles(plugin, ['processor', { paths: ['documents'], expiresIn: null }]);
+    await vi.waitFor(() => expect(head()?.message).toContain('철회할 때까지'));
+    expect(apiFetch).toHaveBeenCalledTimes(1);
+    resolveHead(true);
+    expect(await pending).toEqual({ granted: true, paths: ['documents'], expiresAt: null });
+    expect(JSON.parse(apiFetch.mock.calls[1][1].body)).toEqual({ paths: ['documents'], expiresIn: null, expectedOrigin: 'https://processor.example' });
+  });
+
   it('opens consent in the effective UI language when the preference is automatic', async () => {
     useLocaleStore.setState({ locale: 'auto' });
     document.documentElement.lang = 'ko';

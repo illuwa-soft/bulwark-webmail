@@ -1,5 +1,6 @@
 {
   "plugin_file_grants": {
+    "until_revoked": "直到您撤銷授權（無到期日）",
     "title": "背景檔案讀取授權",
     "message": "{plugin} · {account} → {origin}\n\n僅可讀取以下範圍：\n{paths}\n\n關閉此視窗後仍會繼續。到期時間：{expires}。您可以撤銷存取權限。原生帳號憑證僅保留在此主機上。",
     "allow": "允許讀取"

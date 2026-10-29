@@ -628,7 +628,7 @@ export interface FileResourceView {
 export interface PluginFileGrant {
   granted: boolean;
   paths: string[];
-  /** UTC Unix milliseconds, null when there is no live grant. */
+  /** UTC Unix milliseconds; null with granted=true means until revoked, otherwise no grant. */
   expiresAt: number | null;
 }
 

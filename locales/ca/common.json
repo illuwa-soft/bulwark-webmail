@@ -1,5 +1,6 @@
 {
   "plugin_file_grants": {
+    "until_revoked": "fins que revoqueu el permís (sense caducitat)",
     "title": "Lectura de fitxers en segon pla",
     "message": "{plugin} · {account} → {origin}\n\nAccés de només lectura a:\n{paths}\n\nContinua en tancar aquesta finestra. Caduca: {expires}. Podeu revocar l’accés. Les credencials del compte natiu es queden en aquest servidor.",
     "allow": "Permet la lectura"
