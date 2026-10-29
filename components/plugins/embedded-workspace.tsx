@@ -8,7 +8,7 @@ import { registerEmbeddedViewHost } from '@/lib/plugin-embedded/requests';
 import { EmbeddedView } from './embedded-view';
 
 /** Keep the sandbox mounted while its approved external view occupies the host page. */
-export function EmbeddedWorkspace({ pluginId, children }: { pluginId: string; children: ReactNode }) {
+export function EmbeddedWorkspace({ pluginId, children, frameless = false }: { pluginId: string; children: ReactNode; frameless?: boolean }) {
   const accountId = useAuthStore(state => state.activeAccountId);
   const identity = useRef(accountId);
   identity.current = accountId;
@@ -18,5 +18,5 @@ export function EmbeddedWorkspace({ pluginId, children }: { pluginId: string; ch
   useEffect(() => {
     if (page.current) return registerEmbeddedViewHost({ pluginId, controller, root: page.current });
   }, [controller, pluginId, accountId]);
-  return <><div ref={page} className="flex flex-1 min-h-0 flex-col" hidden={hidden} inert={hidden} style={hidden ? { display: 'none' } : undefined}>{children}</div><EmbeddedView controller={controller} /></>;
+  return <><div ref={page} className="flex flex-1 min-h-0 flex-col" hidden={hidden} inert={hidden} style={hidden ? { display: 'none' } : undefined}>{children}</div><EmbeddedView controller={controller} frameless={frameless} /></>;
 }

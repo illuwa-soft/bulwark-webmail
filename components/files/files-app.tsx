@@ -24,6 +24,8 @@ import type { FileNodeRights } from "@/lib/jmap/types";
 import { ImagePreviewModal } from "@/components/files/image-preview-modal";
 import { FilePreviewModal } from "@/components/files/file-preview-modal";
 import { WopiEditor } from "@/components/files/wopi-editor";
+import { PluginFileEditor, PluginFileEditorControls, type FileEditorHandle } from '@/components/files/plugin-file-editor';
+import { usePluginFileEditor } from '@/hooks/use-plugin-file-editor';
 import { useWopiStatus, canWopiOpen } from "@/hooks/use-wopi-status";
 import { AppTopBannerSlot } from "@/components/plugins/app-top-banner-slot";
 import { AlertTriangle, Loader2 } from "@/components/icons";
@@ -125,7 +127,45 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
   // WOPI document editing (#425): name of the file open in the editor overlay.
   const [editFile, setEditFile] = useState<string | null>(null);
   const wopiStatus = useWopiStatus(filesEnabled);
-  const isOfficeEditable = useCallback((name: string) => canWopiOpen(wopiStatus, name), [wopiStatus]);
+  const pluginEditorRef = useRef<FileEditorHandle>(null);
+  const { target: pluginEditorTarget, canOpen: canOpenPluginFile, open: openPluginFile, close: closePluginFile, runAfterLeave } = usePluginFileEditor(activeAccountId, () => pluginEditorRef.current?.requestClose('navigation') ?? Promise.resolve(false));
+  const isOfficeEditable = useCallback((name: string) => canOpenPluginFile(name) || canWopiOpen(wopiStatus, name), [canOpenPluginFile, wopiStatus]);
+
+  /** Select the current native resource after the previous workspace has completed.
+   * 이전 작업 영역이 완료된 뒤 현재 네이티브 항목을 선택합니다. */
+  const openCurrentFile = useCallback((name: string, pluginId?: string) => {
+    const openedPlugin = openPluginFile(name, pluginId);
+    if (!openedPlugin && pluginId) return;
+    if (!openedPlugin) setEditFile(name);
+    const resource = useFileStore.getState().resources.find(file => file.name === name);
+    if (resource) addRecentFile(name, resource.id);
+  }, [openPluginFile, addRecentFile]);
+
+  /** File replacement follows the same provider-owned leave gate as folder navigation.
+   * 파일 교체도 폴더 탐색과 동일한 제공자 소유 이탈 승인을 따릅니다. */
+  const handleEditFile = useCallback(async (name: string, pluginId?: string) => {
+    await runAfterLeave(() => openCurrentFile(name, pluginId));
+  }, [openCurrentFile, runAfterLeave]);
+
+  /** A late completion may dismiss only the exact selected workspace that started it.
+   * 늦게 완료된 작업은 자신을 시작한 선택 작업 영역만 닫을 수 있습니다. */
+  const closeSelectedFile = useCallback(() => {
+    if (pluginEditorTarget) closePluginFile(pluginEditorTarget);
+  }, [pluginEditorTarget, closePluginFile]);
+
+  /** Keep the existing toolbar's exit bound to the live native editor host.
+   * 기존 도구 모음의 종료를 활성 네이티브 편집 호스트에 결합합니다. */
+  const requestCloseFile = useCallback(() => pluginEditorRef.current?.requestClose('close') ?? Promise.resolve(false), []);
+
+  const pluginWorkspace = useMemo(() => {
+    if (!pluginEditorTarget) return undefined;
+    return {
+      id: pluginEditorTarget.instanceId,
+      fileId: pluginEditorTarget.resourceId,
+      content: <PluginFileEditor key={pluginEditorTarget.instanceId} ref={pluginEditorRef} target={pluginEditorTarget} onClose={closeSelectedFile} />,
+      actions: <PluginFileEditorControls target={pluginEditorTarget} onClose={requestCloseFile} />,
+    };
+  }, [pluginEditorTarget, closeSelectedFile, requestCloseFile]);
 
   // Check auth on mount – skip when already authenticated so that navigating
   // between routes doesn't retrigger checkAuth's transient `{ client: null,
@@ -221,10 +261,12 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
     return subscribePendingDeepLink('files', (segments, search) => {
       const link = parseFilesPath(segments, new URLSearchParams(search ?? window.location.search));
       if (!link) return;
-      if (link.preview) pendingPreviewRef.current = link.preview;
-      void navigateByPathRef.current(link.path);
+      void runAfterLeave(async () => {
+        if (link.preview) pendingPreviewRef.current = link.preview;
+        await navigateByPathRef.current(link.path);
+      });
     });
-  }, [isEmbedded]);
+  }, [isEmbedded, runAfterLeave]);
 
   // Check support and load the first listing after the client is initialized.
   // One effect, run once: `checkSupport` publishes `supportsFiles` before it
@@ -272,12 +314,14 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
     }
   }, [resources, tDeepLink]);
 
-  const handleNavigate = useCallback((path: string, resourceId?: string | null) => {
+  /** Leave the current provider before changing a native folder or account attachment.
+   * 네이티브 폴더·계정 연결을 바꾸기 전에 현재 제공자의 이탈을 완료합니다. */
+  const handleNavigate = useCallback((path: string, resourceId?: string | null) => runAfterLeave(async () => {
     // Pro shell only: the Account breadcrumb segment signals "go to this
     // account's filesystem root" via a sentinel, distinguishing it from a
     // Home click (which detaches the account and returns to the picker).
     if (resourceId === '__account_root__') {
-      void navigate(null);
+      await navigate(null);
       return;
     }
     if (isEmbedded && path === '/' && resourceId === undefined) {
@@ -286,12 +330,12 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
     }
     if (resourceId !== undefined) {
       // Direct ID-based navigation (directory click, breadcrumb dropdown folder)
-      navigate(resourceId, path.split('/').pop() || '');
-    } else {
-      // Path-based navigation (breadcrumbs, favorites, recent files)
-      navigateByPath(path);
+      await navigate(resourceId, path.split('/').pop() || '');
+      return;
     }
-  }, [navigate, navigateByPath, isEmbedded]);
+    // Path-based navigation (breadcrumbs, favorites, recent files).
+    await navigateByPath(path);
+  }), [navigate, navigateByPath, isEmbedded, runAfterLeave]);
 
   const handleCreateFolder = useCallback(async (name: string) => {
     try {
@@ -449,17 +493,19 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
     }
   }, [duplicateResource, t]);
 
+  /** Sidebar moves cannot relocate a document while its provider still owns it.
+   * 제공자가 소유한 문서를 편집 중인 상태로 사이드바에서 이동하지 않습니다. */
   const handleMoveTo = useCallback(async (names: string[], targetId: string | null) => {
-    try {
+    await runAfterLeave(async () => {
       if (!await moveToFolderId(names, targetId)) return;
       toast.success(t("move_success", { count: names.length }), {
         action: { label: t("undo"), onClick: handleUndo },
       });
-    } catch (err) {
+    }).catch((err) => {
       console.error("Failed to move:", err);
       toast.error(t("move_error"));
-    }
-  }, [moveToFolderId, t, handleUndo]);
+    });
+  }, [moveToFolderId, t, handleUndo, runAfterLeave]);
 
   const handlePaste = useCallback(async () => {
     try {
@@ -483,17 +529,19 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
     addRecentFile(name, findResourceId(name));
   }, [addRecentFile, findResourceId]);
 
+  /** Finish the owning workspace before renaming a file or one of its ancestor folders.
+   * 파일이나 상위 폴더의 이름을 바꾸기 전에 소유 작업 영역을 완료합니다. */
   const handleRenameNode = useCallback(async (id: string, newName: string) => {
-    try {
+    await runAfterLeave(async () => {
       if (!await renameNode(id, newName)) return;
       toast.success(t("rename_success"), {
         action: { label: t("undo"), onClick: handleUndo },
       });
-    } catch (err) {
+    }).catch((err) => {
       console.error("Failed to rename:", err);
       toast.error(t("rename_error"));
-    }
-  }, [renameNode, t, handleUndo]);
+    });
+  }, [renameNode, t, handleUndo, runAfterLeave]);
 
   const handleDeleteNode = useCallback(async (id: string, name: string) => {
     const confirmed = await confirmDialog({
@@ -503,14 +551,14 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
       variant: "destructive",
     });
     if (!confirmed) return;
-    try {
+    await runAfterLeave(async () => {
       if (!await deleteNode(id)) return;
       toast.success(t("delete_success"));
-    } catch (err) {
+    }).catch((err) => {
       console.error("Failed to delete:", err);
       toast.error(t("delete_error"));
-    }
-  }, [deleteNode, confirmDialog, t]);
+    });
+  }, [deleteNode, confirmDialog, t, runAfterLeave]);
 
   const handleDownloadNode = useCallback(async (id: string) => {
     try {
@@ -522,21 +570,28 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
   }, [downloadNode, t]);
 
   const handleRevealNode = useCallback(async (id: string) => {
-    if (!await revealNode(id)) toast.error(tDeepLink("file_not_found"));
-  }, [revealNode, tDeepLink]);
+    await runAfterLeave(async () => {
+      if (!await revealNode(id)) toast.error(tDeepLink("file_not_found"));
+    });
+  }, [revealNode, tDeepLink, runAfterLeave]);
 
-  // Recent files can live in any folder: open that folder, then the file.
+  /** Tree leaves and recent items share native reveal/open after the same leave decision.
+   * 트리 파일과 최근 항목은 같은 이탈 승인 뒤 네이티브 위치 확인·열기를 공유합니다. */
   const handleOpenRecent = useCallback(async (id: string) => {
-    const name = await revealNode(id);
-    if (!name) {
-      toast.error(tDeepLink("file_not_found"));
-      return;
-    }
-    addRecentFile(name, id);
-    if (isOfficeEditable(name)) setEditFile(name);
-    else if (isImageFile(name)) setPreviewImage(name);
-    else if (isFilePreviewable(name)) setPreviewFile(name);
-  }, [revealNode, addRecentFile, isOfficeEditable, tDeepLink]);
+    if (pluginEditorTarget?.resourceId === id) return;
+    await runAfterLeave(async () => {
+      const name = await revealNode(id);
+      if (!name) {
+        toast.error(tDeepLink("file_not_found"));
+        return;
+      }
+      if (isOfficeEditable(name)) { openCurrentFile(name); return; }
+      addRecentFile(name, id);
+      if (isImageFile(name)) { setPreviewImage(name); return; }
+      if (isFilePreviewable(name)) { setPreviewFile(name); return; }
+      await downloadNode(id);
+    });
+  }, [revealNode, addRecentFile, isOfficeEditable, openCurrentFile, tDeepLink, pluginEditorTarget, downloadNode, runAfterLeave]);
 
   // The permalink for the folder on screen. In the Pro shell only the focused
   // tab writes the address bar; the standard instance that renders while Pro
@@ -588,14 +643,14 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
     : null;
 
   const handleSelectAccount = useCallback((accountId: string) => {
-    const nextClient = getClientForAccount(accountId);
-    if (!nextClient) return;
-    const store = useFileStore.getState();
-    store.initClient(nextClient, accountId);
-    // Reset supportsFiles so the existing checkSupport effect re-runs for
-    // the freshly-attached client and triggers the initial navigate(null).
-    useFileStore.setState({ supportsFiles: null });
-  }, [getClientForAccount]);
+    void runAfterLeave(() => {
+      const nextClient = getClientForAccount(accountId);
+      if (!nextClient) return;
+      const store = useFileStore.getState();
+      store.initClient(nextClient, accountId);
+      useFileStore.setState({ supportsFiles: null });
+    });
+  }, [getClientForAccount, runAfterLeave]);
 
   if (!isAuthenticated) return null;
 
@@ -649,6 +704,7 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
                 </div>
               ) : (
                 <FileBrowser
+                  workspace={pluginWorkspace}
                   currentPath={currentPath}
                   resources={resources}
                   isLoading={isLoading}
@@ -677,7 +733,7 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
                   onPreviewImage={handlePreviewImage}
                   onPreviewFile={handlePreviewFile}
                   isOfficeEditable={isOfficeEditable}
-                  onEditFile={setEditFile}
+                  onEditFile={handleEditFile}
                   onCreateTextFile={handleCreateTextFile}
                   onDuplicate={handleDuplicate}
                   getImageUrl={getImageUrl}

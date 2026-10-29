@@ -8,11 +8,11 @@ import { IS_LITE } from '../lite';
 import { doAppGetSettings, doAppSearchSettings } from './host-api-app';
 import { mayOfferSlot, pluginHasPermission } from './permissions';
 import { proxyAccounts, proxyCancel, proxyConnect, proxyDisconnect, proxyFetch, proxyFileGrant, proxyGrantFiles, proxyRevokeFiles, type StreamSink } from './proxy-client';
-import { checkActions, isActionSurface, setPluginActions } from './actions';
+import { checkActions, isActionSurface, setPluginActions, setFileEditorActions } from './actions';
 import { checkDayLabels, setDayLabels } from './day-labels';
 import { refreshRowBadges } from './row-badges';
 import { checkPages, setPluginPages } from './pages';
-import { toast as appToast } from '@/stores/toast-store';
+import { dismissPluginToast, showPluginProgressToast, showPluginToast } from './host-api-toasts';
 import { useAuthStore } from '@/stores/auth-store';
 import { useAccountStore } from '@/stores/account-store';
 import { claimLegacyPluginStorage, pluginStoragePrefix } from './storage-scope';
@@ -66,6 +66,8 @@ import { doReadPage, doFilesReadText } from './host-api-read-pages';
 import { doPersistentStorage, type PersistentStorageOwner } from './host-api-persistent-storage';
 import { readEmbeddedCommand, type EmbeddedViewOwner } from '../plugin-embedded/contracts';
 import { requestEmbeddedView } from '../plugin-embedded/requests';
+import { closeFileEditor } from '@/lib/plugin-sandbox/file-editors';
+import { useFileStore } from '@/stores/file-store';
 
 /**
  * Methods only callable from the privileged (same-origin) tier. These expose
@@ -110,6 +112,7 @@ export const PERM_PER_METHOD: Readonly<Record<string, Permission | null>> = {
   'email.getPrimary': 'email:read',
   'email.update': 'email:write',
   'files.get': 'files:read',
+  'files.refresh': 'files:read',
   'email.query': 'email:read',
   'calendar.queryEvents': 'calendar:read',
   'contact.query': 'contacts:read',
@@ -136,6 +139,8 @@ export const PERM_PER_METHOD: Readonly<Record<string, Permission | null>> = {
   'toast.error': null,
   'toast.info': null,
   'toast.warning': null,
+  'toast.progress': null,
+  'toast.dismiss': null,
   // http
   'http.post': 'http:post',
   'http.fetch': 'http:fetch',
@@ -255,6 +260,7 @@ export const PERM_PER_METHOD: Readonly<Record<string, Permission | null>> = {
   'ui.setDayLabels': 'ui:calendar-action',
   'ui.setPages': 'ui:app-page',
   'ui.embeddedView': 'ui:embedded-view',
+  'ui.closeFileEditor': 'ui:files',
   'ui.setSectionTitle': 'ui:sidebar-widget',
   // Open, close or toggle the panel the plugin's slot sits in; the panel's
   // own permission is checked per call (see the slot catalogue).
@@ -1843,30 +1849,6 @@ async function adminDelete(pluginId: string, key: string): Promise<void> {
   }));
 }
 
-// ─── Toasts ──────────────────────────────────────────────────
-
-const MAX_TOAST_LENGTH = 300;
-const TOASTS_PER_TEN_SECONDS = 5;
-const recentToasts = new Map<string, number[]>();
-
-function toastText(value: unknown): string {
-  const text = String(value ?? '');
-  return text.length > MAX_TOAST_LENGTH ? text.slice(0, MAX_TOAST_LENGTH - 1) + '…' : text;
-}
-
-/** A plugin may show a few toasts; past that they are dropped, not queued. */
-function mayToast(pluginId: string): boolean {
-  const now = Date.now();
-  const recent = (recentToasts.get(pluginId) ?? []).filter((t) => now - t < 10_000);
-  if (recent.length >= TOASTS_PER_TEN_SECONDS) {
-    recentToasts.set(pluginId, recent);
-    return false;
-  }
-  recent.push(now);
-  recentToasts.set(pluginId, recent);
-  return true;
-}
-
 // ─── Dispatcher ──────────────────────────────────────────────
 
 /** Resolves an api-request method against the per-plugin permissions. */
@@ -1874,7 +1856,7 @@ export async function dispatchApiCall(
   plugin: InstalledPlugin,
   method: string,
   args: unknown[],
-  opts?: { privileged?: boolean; sink?: StreamSink; embeddedOwner?: EmbeddedViewOwner; persistentOwner?: PersistentStorageOwner },
+  opts?: { privileged?: boolean; sink?: StreamSink; embeddedOwner?: EmbeddedViewOwner; persistentOwner?: PersistentStorageOwner; toastSignal?: AbortSignal },
 ): Promise<unknown> {
   // Tier gate: privileged-only methods are refused for untrusted (null-origin)
   // instances even if the permission is somehow present. Defence-in-depth on
@@ -1896,15 +1878,21 @@ export async function dispatchApiCall(
   switch (method) {
     case 'ui.embeddedView': {
       if (IS_LITE) throw new Error('Embedded views require the full app');
-      if (!pluginHasPermission(plugin, 'ui:app-page')) throw new Error('Embedded views require the app-page permission');
+      const canUsePage = pluginHasPermission(plugin, 'ui:app-page');
+      const canUseFiles = pluginHasPermission(plugin, 'ui:files');
+      if (!canUsePage && !canUseFiles) throw new Error('Embedded view surface permission is required');
       const scope = opts?.embeddedOwner;
-      if (!scope || scope.slot !== 'app-page' || scope.signal.aborted) throw new Error('Embedded views require a live app-page instance');
+      if (!scope || !['app-page', 'file-editor'].includes(scope.slot ?? '') || scope.signal.aborted) throw new Error('Embedded views require a live app-page or file-editor instance');
+      if (scope.slot === 'app-page' && !canUsePage) throw new Error('Embedded app-page permission is required');
+      if (scope.slot === 'file-editor' && !canUseFiles) throw new Error('Embedded file-editor permission is required');
       return requestEmbeddedView(plugin.id, scope, readEmbeddedCommand(args[0]), {
         hostOrigin: window.location.origin,
         frameOrigins: plugin.frameOrigins ?? [],
         framePaths: plugin.framePaths ?? [],
       });
     }
+    case 'ui.closeFileEditor': return closeFileEditor(plugin.id, opts?.embeddedOwner);
+    case 'files.refresh': return useFileStore.getState().refresh();
     case 'email.query':
     case 'calendar.queryEvents':
     case 'contact.query':
@@ -1935,7 +1923,13 @@ export async function dispatchApiCall(
       const surface = args[0];
       if (typeof surface !== 'string' || !isActionSurface(surface)) throw new Error(`"${String(surface)}" is not a surface that takes actions`);
       if (!mayOfferSlot(plugin, surface)) throw new Error(`Plugin "${plugin.id}" may not add actions to "${surface}"`);
-      setPluginActions(plugin.id, plugin.name, surface, checkActions(args[1]));
+      const actions = checkActions(args[1]);
+      if (surface === 'file-open-actions' && actions.some((action) => !action.fileExtensions?.length)) throw new Error('File editors require explicit fileExtensions');
+      if (surface === 'file-editor-actions') {
+        setFileEditorActions(plugin.id, plugin.name, actions, opts?.embeddedOwner);
+        return undefined;
+      }
+      setPluginActions(plugin.id, plugin.name, surface, actions);
       return undefined;
     }
     case 'ui.refreshRowBadges': refreshRowBadges(); return undefined;
@@ -1957,10 +1951,12 @@ export async function dispatchApiCall(
     case 'storage.persistent.set': return doPersistentStorage(plugin, 'set', args[0], args[1], args[2], opts?.persistentOwner);
     case 'storage.persistent.remove': return doPersistentStorage(plugin, 'remove', args[0], undefined, args[1], opts?.persistentOwner);
 
-    case 'toast.success': if (mayToast(plugin.id)) appToast.success(toastText(args[0])); return undefined;
-    case 'toast.error':   if (mayToast(plugin.id)) appToast.error(toastText(args[0])); return undefined;
-    case 'toast.info':    if (mayToast(plugin.id)) appToast.info(toastText(args[0])); return undefined;
-    case 'toast.warning': if (mayToast(plugin.id)) appToast.warning(toastText(args[0])); return undefined;
+    case 'toast.success': showPluginToast(plugin.id, 'success', args[0]); return undefined;
+    case 'toast.error': showPluginToast(plugin.id, 'error', args[0]); return undefined;
+    case 'toast.info': showPluginToast(plugin.id, 'info', args[0]); return undefined;
+    case 'toast.warning': showPluginToast(plugin.id, 'warning', args[0]); return undefined;
+    case 'toast.progress': return showPluginProgressToast(plugin.id, args[0], opts?.toastSignal);
+    case 'toast.dismiss': dismissPluginToast(plugin.id, args[0], opts?.toastSignal); return undefined;
 
     case 'http.post':  return doHttpPost(plugin, args[0] as string, args[1], args[2] as PluginHttpPostOptions | undefined);
     case 'http.fetch': return doHttpFetch(plugin, args[0] as string, args[1] as PluginFetchInit | undefined);

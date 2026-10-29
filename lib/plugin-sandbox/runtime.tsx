@@ -477,6 +477,8 @@ function buildPluginApi(manifest: PluginManifest) {
       ) => callApi('jmap.importRaw', [rawBytes, mailboxRoles, opts]),
     },
     files: {
+      /** Refreshes the native Files view without navigating or changing its selected folder. */
+      refresh: () => callApi('files.refresh', []) as Promise<void>,
       query: (options?: FileQueryOptions) => callApi('files.query', [options]) as Promise<FileQueryPage>,
       readText: (id: string, options?: { maxBytes?: number }) => callApi('files.readText', [id, options], NETWORK_API_TIMEOUT_MS) as Promise<FileText>,
       /** Read at most 25 MiB from an owning FileNode (files:read), without a URL, token or blob id. */
@@ -556,6 +558,12 @@ function buildPluginApi(manifest: PluginManifest) {
         callApi('composer.attach', [composerId, file]) as Promise<boolean>,
     },
     toast: {
+      /** Stay visible until dismissed or this frame closes; returns a frame-owned handle.
+       * 직접 닫거나 프레임이 종료될 때까지 표시하고 프레임 소유 핸들을 반환합니다. */
+      progress: (m: string) => callApi('toast.progress', [m]) as Promise<string>,
+      /** Dismiss this frame's progress handle, even after the burst limit.
+       * 알림 빈도 제한과 관계없이 현재 프레임의 진행 알림을 닫습니다. */
+      dismiss: (id: string) => callApi('toast.dismiss', [id]) as Promise<void>,
       success: (m: string) => { void callApi('toast.success', [m]); },
       error: (m: string) => { void callApi('toast.error', [m]); },
       info: (m: string) => { void callApi('toast.info', [m]); },
@@ -609,7 +617,7 @@ function buildPluginApi(manifest: PluginManifest) {
        * palette, ...). Replaces what this plugin set there before; [] removes
        * them. Clicks arrive in the `onAction({ surface, actionId, context })` hook.
        */
-      setActions: (surface: string, actions: Array<{ id: string; label: string; icon?: string; order?: number; mailboxRoles?: string[]; mimeTypes?: string[]; danger?: boolean }>) =>
+      setActions: (surface: string, actions: Array<{ id: string; label: string; icon?: string; order?: number; mailboxRoles?: string[]; mimeTypes?: string[]; fileExtensions?: string[]; danger?: boolean; disabled?: boolean }>) =>
         callApi('ui.setActions', [surface, actions]) as Promise<void>,
       /**
        * Ask every visible message row for its onEmailListItemRender badges
@@ -622,6 +630,8 @@ function buildPluginApi(manifest: PluginManifest) {
       /** Full pages with a button in the navigation bar; the `app-page` slot renders them. */
       setPages: (pages: Array<{ id: string; title: string; icon?: string }>) =>
         callApi('ui.setPages', [pages]) as Promise<void>,
+      /** Finishes this provider's current Files editor through the host leave guard. */
+      closeFileEditor: () => callApi('ui.closeFileEditor', [], 0) as Promise<boolean>,
       /**
        * The header of this plugin's sidebar section (the host draws it like
        * Folders and Tags), e.g. a translated "Upcoming birthdays". null goes
@@ -1091,6 +1101,8 @@ async function bootBackground(payload: BackgroundInit): Promise<void> {
   sendToHost({ type: 'init-done', hooks: hookNames, slots: slotInfo, shortcuts: shortcutInfo });
 }
 
+/** Mount the surface without background activation and bind editor calls to its local hook.
+ * 백그라운드를 활성화하지 않고 표면을 마운트하며 편집 호출을 로컬 훅에 결합합니다. */
 function bootSlot(payload: SlotInit): void {
   // Replay the host theme before first paint so the slot never flashes the UA
   // default serif font or a light-on-light/dark mismatch.
@@ -1108,6 +1120,14 @@ function bootSlot(payload: SlotInit): void {
 
   const rootEl = document.getElementById('plugin-sandbox-root');
   if (!rootEl) throw new Error('Sandbox root element missing');
+
+  // File editor controls invoke this frame's hook, never the background's activation or hooks.
+  // 파일 편집 컨트롤은 백그라운드 활성화·훅 대신 현재 프레임의 훅만 호출합니다.
+  const slotHooks: string[] = [];
+  if (payload.slot === 'file-editor' && typeof exports.hooks?.onAction === 'function') {
+    hookHandlers.onAction = exports.hooks.onAction;
+    slotHooks.push('onAction');
+  }
 
   let currentProps = decodeCallbacks(payload.extraProps) as Record<string, unknown>;
   const Component = slotDef.component;
@@ -1184,7 +1204,7 @@ function bootSlot(payload: SlotInit): void {
 
   const reactRoot = ReactDOM.createRoot(rootEl);
   reactRoot.render(React.createElement(SlotShell));
-  sendToHost({ type: 'init-done', hooks: [], slots: [], shortcuts: [] });
+  sendToHost({ type: 'init-done', hooks: slotHooks, slots: [], shortcuts: [] });
 }
 
 // Populated by bootSlot - receives `props-update` messages.

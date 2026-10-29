@@ -20,5 +20,15 @@ export async function leaveEmbeddedViews(reason: LeaveReason) {
   for (const host of hosts) if (!(await host.controller.leave(reason))) return false;
   return true;
 }
+
+/** Leave only the selected provider workspace; another document must keep its own lifecycle.
+ * 선택한 제공자 작업 영역만 종료하고 다른 문서의 수명은 독립적으로 유지합니다. */
+export async function leaveEmbeddedWorkspace(pluginId: string, root: Element, reason: LeaveReason) {
+  const selected = [...hosts].filter((host) => host.pluginId === pluginId && root.contains(host.root));
+
+  for (const host of selected) if (!(await host.controller.leave(reason))) return false;
+
+  return true;
+}
 /** Revoked authentication and removed pages dispose without consulting plugin code. */
 export function disposeEmbeddedViews() { for (const host of hosts) host.controller.dispose(); }

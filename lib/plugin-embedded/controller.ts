@@ -5,7 +5,8 @@ type View = { id: string; url: string; title: string };
 type State = { view: View | null; detached: boolean; preventUnload: boolean; leaveFailed: boolean };
 const initial: State = { view: null, detached: false, preventUnload: false, leaveFailed: false };
 
-/** Own only frame authority and lifecycle. Provider messages remain opaque JSON. */
+/** Own only frame authority and lifecycle. Provider messages remain opaque JSON.
+ * 프레임 권한·수명만 소유하고 제공자 메시지는 불투명한 JSON으로 유지합니다. */
 export function createEmbeddedViewController(identity: () => string, options: { waitMs?: number; leaveMs?: number } = {}) {
   const store = createStore<State>()(() => ({ ...initial }));
   let owner: EmbeddedViewOwner | null = null;
@@ -37,7 +38,7 @@ export function createEmbeddedViewController(identity: () => string, options: { 
     if (account !== identity() || scope.signal.aborted) { dispose(); throw new Error('Embedded view account changed'); }
   };
   const open = (scope: EmbeddedViewOwner, input: Extract<EmbeddedViewCommand, { action: 'open' }>, policy: FramePolicy) => {
-    if (scope.slot !== 'app-page' || scope.signal.aborted) throw new Error('Embedded views require a live app-page instance');
+    if (!['app-page', 'file-editor'].includes(scope.slot ?? '') || scope.signal.aborted) throw new Error('Embedded views require a live app-page or file-editor instance');
     if (store.getState().view) throw new Error('An embedded view is already open');
     const url = readEmbeddedUrl(input.url, policy);
     account = identity();
@@ -74,7 +75,9 @@ export function createEmbeddedViewController(identity: () => string, options: { 
   const reply = (requestId: string, allow: boolean) => {
     if (!pendingLeave || pendingLeave.requestId !== requestId) throw new Error('Leave request changed');
     const pending = pendingLeave; pendingLeave = null;
-    store.setState({ leaveFailed: !allow });
+    // An explicit refusal keeps editing; the timeout alone exposes host-owned recovery.
+    // 명시적인 이탈 거절은 편집을 유지하고 응답 시간 초과만 호스트 복구를 표시합니다.
+    store.setState({ leaveFailed: false });
     pending.resolve(allow);
     if (allow) dispose();
   };
