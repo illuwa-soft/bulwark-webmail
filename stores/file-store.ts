@@ -85,8 +85,6 @@ interface FileState {
    * instead of fetching again, and is current after every change.
    */
   allFolders: FileResource[];
-  /** Regular files from the same listing, for the native explorer tree; never fetch per row. */
-  allFiles: FileResource[];
   /** False until the first listing for the attached account has finished. */
   hasListed: boolean;
 
@@ -382,7 +380,6 @@ export const useFileStore = create<FileState>((set, get) => ({
   lastAction: null,
   sharedRoots: [],
   allFolders: [],
-  allFiles: [],
   hasListed: false,
   favorites: (() => {
     try { return JSON.parse(localStorage.getItem('files-favorites') || '[]'); } catch { return []; }
@@ -407,7 +404,6 @@ export const useFileStore = create<FileState>((set, get) => ({
       currentParentId: null,
       resources: [],
       allFolders: [],
-      allFiles: [],
       hasListed: false,
       selectedResources: new Set<string>(),
       error: null,
@@ -667,7 +663,6 @@ export const useFileStore = create<FileState>((set, get) => ({
       if (get().client !== client || get().currentParentId !== parentId) return;
       const resources = sortResources(childrenOf(allNodes, parentId).map(nodeToResource));
       const allFolders = allNodes.filter(isFolder).map(nodeToResource);
-      const allFiles = allNodes.filter(node => !isFolder(node)).map(nodeToResource);
 
       // Prune recent files whose backing node no longer exists on the server
       const { recentFiles } = get();
@@ -675,9 +670,9 @@ export const useFileStore = create<FileState>((set, get) => ({
       const prunedRecent = recentFiles.filter(r => existingIds.has(r.id));
       if (prunedRecent.length !== recentFiles.length) {
         try { localStorage.setItem('files-recent-files', JSON.stringify(prunedRecent)); } catch { /* ignore */ }
-        set({ resources, allFolders, allFiles, recentFiles: prunedRecent, isLoading: false, hasListed: true });
+        set({ resources, allFolders, recentFiles: prunedRecent, isLoading: false, hasListed: true });
       } else {
-        set({ resources, allFolders, allFiles, isLoading: false, hasListed: true });
+        set({ resources, allFolders, isLoading: false, hasListed: true });
       }
       if (opensFolder) void fileHooks.onFileNavigate.emit({ path: newPath });
     } catch (error) {

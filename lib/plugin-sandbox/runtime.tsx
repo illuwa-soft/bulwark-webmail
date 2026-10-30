@@ -477,8 +477,6 @@ function buildPluginApi(manifest: PluginManifest) {
       ) => callApi('jmap.importRaw', [rawBytes, mailboxRoles, opts]),
     },
     files: {
-      /** Refreshes the native Files view without navigating or changing its selected folder. */
-      refresh: () => callApi('files.refresh', []) as Promise<void>,
       query: (options?: FileQueryOptions) => callApi('files.query', [options]) as Promise<FileQueryPage>,
       readText: (id: string, options?: { maxBytes?: number }) => callApi('files.readText', [id, options], NETWORK_API_TIMEOUT_MS) as Promise<FileText>,
       /** Read at most 25 MiB from an owning FileNode (files:read), without a URL, token or blob id. */
@@ -617,7 +615,7 @@ function buildPluginApi(manifest: PluginManifest) {
        * palette, ...). Replaces what this plugin set there before; [] removes
        * them. Clicks arrive in the `onAction({ surface, actionId, context })` hook.
        */
-      setActions: (surface: string, actions: Array<{ id: string; label: string; icon?: string; order?: number; mailboxRoles?: string[]; mimeTypes?: string[]; fileExtensions?: string[]; danger?: boolean; disabled?: boolean }>) =>
+      setActions: (surface: string, actions: Array<{ id: string; label: string; icon?: string; order?: number; mailboxRoles?: string[]; mimeTypes?: string[]; danger?: boolean }>) =>
         callApi('ui.setActions', [surface, actions]) as Promise<void>,
       /**
        * Ask every visible message row for its onEmailListItemRender badges
@@ -630,8 +628,6 @@ function buildPluginApi(manifest: PluginManifest) {
       /** Full pages with a button in the navigation bar; the `app-page` slot renders them. */
       setPages: (pages: Array<{ id: string; title: string; icon?: string }>) =>
         callApi('ui.setPages', [pages]) as Promise<void>,
-      /** Finishes this provider's current Files editor through the host leave guard. */
-      closeFileEditor: () => callApi('ui.closeFileEditor', [], 0) as Promise<boolean>,
       /**
        * The header of this plugin's sidebar section (the host draws it like
        * Folders and Tags), e.g. a translated "Upcoming birthdays". null goes
@@ -1121,14 +1117,6 @@ function bootSlot(payload: SlotInit): void {
   const rootEl = document.getElementById('plugin-sandbox-root');
   if (!rootEl) throw new Error('Sandbox root element missing');
 
-  // File editor controls invoke this frame's hook, never the background's activation or hooks.
-  // 파일 편집 컨트롤은 백그라운드 활성화·훅 대신 현재 프레임의 훅만 호출합니다.
-  const slotHooks: string[] = [];
-  if (payload.slot === 'file-editor' && typeof exports.hooks?.onAction === 'function') {
-    hookHandlers.onAction = exports.hooks.onAction;
-    slotHooks.push('onAction');
-  }
-
   let currentProps = decodeCallbacks(payload.extraProps) as Record<string, unknown>;
   const Component = slotDef.component;
   const inline = isInlineSlot(payload.slot);
@@ -1204,7 +1192,7 @@ function bootSlot(payload: SlotInit): void {
 
   const reactRoot = ReactDOM.createRoot(rootEl);
   reactRoot.render(React.createElement(SlotShell));
-  sendToHost({ type: 'init-done', hooks: slotHooks, slots: [], shortcuts: [] });
+  sendToHost({ type: 'init-done', hooks: [], slots: [], shortcuts: [] });
 }
 
 // Populated by bootSlot - receives `props-update` messages.

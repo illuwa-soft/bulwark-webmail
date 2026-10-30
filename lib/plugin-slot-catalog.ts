@@ -108,10 +108,6 @@ export const SLOT_CATALOG = {
 
   // ─── Files ─────────────────────────────────────────────────
   'file-actions': S('files', 'action', ['ui:files'], { files: 'files:read' }, 'entries in a file\'s menu and the selection toolbar'),
-  'file-create-actions': S('files', 'action', ['ui:files'], { parentId: 'files:read', accountId: 'files:read', path: 'files:read' }, 'new-file entries in the current folder\'s right-click menu'),
-  'file-open-actions': S('files', 'action', ['ui:files'], {}, 'extension-filtered file handlers; opening mounts the provider\'s file-editor slot'),
-  'file-editor': S('files', 'frame', ['ui:files'], { file: 'files:read', accountId: 'files:read' }, 'the selected file editor inside Files'),
-  'file-editor-actions': S('files', 'action', ['ui:files'], { file: 'files:read', accountId: 'files:read' }, 'controls in the native Files toolbar, owned by the exact live file-editor frame', true),
   'file-preview-section': S('files', 'frame', ['ui:files'], { file: 'files:read' }, 'a section in the file preview'),
 
   // ─── Settings and admin ────────────────────────────────────

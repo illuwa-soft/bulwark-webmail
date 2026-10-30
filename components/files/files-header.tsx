@@ -78,8 +78,6 @@ interface FilesHeaderProps {
 
 const MAX_VISIBLE_CRUMBS = 3;
 
-/** Show folder-list tools only; active document controls belong to the explorer dock.
- * 폴더 목록 도구만 표시하고 활성 문서 컨트롤은 탐색기 도크에 둡니다. */
 export function FilesHeader({
   crumbs,
   accountLabel,

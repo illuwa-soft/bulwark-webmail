@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect, useMemo, type ReactNode } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import {
   Upload, FolderPlus, Download, Trash2, Pencil, Copy, Clipboard, Scissors, Info,
@@ -8,7 +8,6 @@ import {
   RefreshCw, Star, StarOff, Plus, CheckSquare,
 } from "@/components/icons";
 import { useIsDesktop, useIsMobile, useMediaQuery } from "@/hooks/use-media-query";
-import { fileExplorerWidth, useFileExplorerVisibility } from "@/hooks/use-file-explorer-visibility";
 import { useContextMenu } from "@/hooks/use-context-menu";
 import { Button } from "@/components/ui/button";
 import { ContextMenu, ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu";
@@ -50,8 +49,6 @@ export interface AccountFolderEntry {
 }
 
 interface FileBrowserProps {
-  /** An editor fills the listing pane; its opaque controls are docked in the native explorer. */
-  workspace?: { id: string; fileId: string; content: ReactNode; actions: ReactNode };
   currentPath: string;
   resources: FileResource[];
   isLoading: boolean;
@@ -59,7 +56,7 @@ interface FileBrowserProps {
   selectedResources: Set<string>;
   uploadProgress: { name: string; loaded: number; total: number; current: number; totalFiles: number } | null;
   clipboard: ClipboardState | null;
-  onNavigate: (path: string, resourceId?: string | null) => void | Promise<boolean>;
+  onNavigate: (path: string, resourceId?: string | null) => void;
   onCreateFolder: (name: string) => Promise<void>;
   onUploadFiles: (files: File[]) => Promise<void>;
   onUploadFolder: (files: File[]) => Promise<void>;
@@ -82,7 +79,7 @@ interface FileBrowserProps {
   onPreviewFile: (name: string) => void;
   /** WOPI document editing (#425): whether a file can open in the document editor. */
   isOfficeEditable?: (name: string) => boolean;
-  onEditFile?: (name: string, pluginId?: string) => void;
+  onEditFile?: (name: string) => void;
   onCreateTextFile: (name: string) => Promise<void>;
   onDuplicate: (name: string) => Promise<void>;
   getImageUrl: (name: string) => Promise<string>;
@@ -128,10 +125,7 @@ function isTypingTarget(target: EventTarget | null): boolean {
   return el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable;
 }
 
-/** Keep native browsing beside an uninterrupted provider canvas; the provider owns completion.
- * 네이티브 탐색과 제공자 캔버스를 나란히 유지하고 완료 판단은 제공자에게 맡깁니다. */
 export function FileBrowser({
-  workspace,
   currentPath,
   resources,
   isLoading,
@@ -195,7 +189,6 @@ export function FileBrowser({
   const sharedRoots = useFileStore((s) => s.sharedRoots);
   const loadSharedRoots = useFileStore((s) => s.loadSharedRoots);
   const allFolders = useFileStore((s) => s.allFolders);
-  const allFiles = useFileStore((s) => s.allFiles);
   const hasListed = useFileStore((s) => s.hasListed);
   const currentParentId = useFileStore((s) => s.currentParentId);
   const pathStack = useFileStore((s) => s.pathStack);
@@ -241,9 +234,9 @@ export function FileBrowser({
   const isNarrow = !isDesktop;
   const isMobile = useIsMobile();
   const touch = useMediaQuery("(pointer: coarse)") && isMobile;
-  const { folded, drawerOpen: narrowSidebarOpen, closeDrawer, toggleExplorer } = useFileExplorerVisibility(isNarrow, currentPath);
-  const explorerFolded = (!isNarrow && folded) || (isNarrow && !!workspace && !narrowSidebarOpen);
-  const drawerHidden = isNarrow && !narrowSidebarOpen && !workspace;
+  const [narrowSidebarOpen, setNarrowSidebarOpen] = useState(false);
+  useEffect(() => { if (!isNarrow) setNarrowSidebarOpen(false); }, [isNarrow]);
+  useEffect(() => { setNarrowSidebarOpen(false); }, [currentPath]);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     if (typeof window !== "undefined") {
       const saved = Number(localStorage.getItem("files-sidebar-width"));
@@ -644,7 +637,6 @@ export function FileBrowser({
   }, [focusedName]);
 
   useEffect(() => {
-    if (workspace) return;
     const handler = (e: KeyboardEvent) => {
       if (isTypingTarget(e.target)) return;
       if (showNewFolder || showNewTextFile || renameTarget || renameFolder || shareTargetId) return;
@@ -730,7 +722,7 @@ export function FileBrowser({
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [
-    workspace, showNewFolder, showNewTextFile, renameTarget, renameFolder, shareTargetId, accountPickerMode, selectedList, singleSelected,
+    showNewFolder, showNewTextFile, renameTarget, renameFolder, shareTargetId, accountPickerMode, selectedList, singleSelected,
     selectAllVisible, onCopy, onCut, onPaste, clipboard, searchQuery, onClearSelection, deleteNames, openResource,
     focusedName, onToggleSelect, currentPath, navigateUp, viewMode, gridColumns, moveFocus,
   ]);
@@ -813,7 +805,6 @@ export function FileBrowser({
         <ContextMenuItem icon={Info} label={t("details")} onClick={() => { closeMenu(); toggleDetails(true); }} />
         <ContextMenuSeparator />
         <ContextMenuItem icon={Trash2} label={t("delete")} shortcut="Del" destructive onClick={() => { closeMenu(); deleteNames([resource.name]); }} />
-        {!resource.isDirectory && onEditFile && <PluginActions surface="file-open-actions" variant="menu" context={{}} fileName={resource.name} onRan={closeMenu} onAction={async (action) => { onEditFile(resource.name, action.pluginId); }} />}
         <FilePluginMenuEntries
           files={[resourceToView(resource, currentPath)]}
           mimeType={resource.isDirectory ? "" : resource.contentType}
@@ -830,7 +821,6 @@ export function FileBrowser({
       <ContextMenuSeparator />
       <ContextMenuItem icon={FolderPlus} label={t("new_folder")} onClick={() => { closeMenu(); setShowNewFolder(true); }} />
       <ContextMenuItem icon={FilePlus} label={t("new_text_file")} onClick={() => { closeMenu(); setShowNewTextFile(true); }} />
-      {canCreate && ownAccountId && <PluginActions surface="file-create-actions" variant="menu" context={{ parentId: currentParentId, accountId: ownAccountId, path: currentPath }} onRan={closeMenu} />}
     </>
   );
 
@@ -854,8 +844,8 @@ export function FileBrowser({
   }, [sortKey]);
 
   // A sidebar entry's "New folder" / "Upload" acts on that folder: open it first.
-  const createIn = useCallback(async (path: string, id: string | null, kind: CreateKind) => {
-    if (id !== currentParentId && await onNavigate(path, id) === false) return;
+  const createIn = useCallback((path: string, id: string | null, kind: CreateKind) => {
+    if (id !== currentParentId) onNavigate(path, id);
     if (kind === "folder") setShowNewFolder(true);
     else if (kind === "text") setShowNewTextFile(true);
     else if (kind === "files") fileInputRef.current?.click();
@@ -865,21 +855,15 @@ export function FileBrowser({
   // ---- Rendering -------------------------------------------------------------
   const sidebar = !accountPickerMode && (
     <FilesSidebar
-      folded={explorerFolded}
-      onToggleExplorer={toggleExplorer}
-      actions={workspace?.actions}
       currentParentId={currentParentId}
       currentPath={currentPath}
       allFolders={allFolders}
-      allFiles={allFiles}
-      activeFileId={workspace?.fileId}
-      creationContext={canCreate && ownAccountId && { parentId: currentParentId, accountId: ownAccountId, path: currentPath } || undefined}
       sharedRoots={sharedRoots}
       favorites={favorites}
       recentFiles={recentFiles}
       canCreate={canCreate}
       onNavigate={onNavigate}
-      onOpenRecent={(id) => { closeDrawer(); onOpenRecent(id); }}
+      onOpenRecent={onOpenRecent}
       onUploadFiles={() => fileInputRef.current?.click()}
       onUploadFolder={() => folderInputRef.current?.click()}
       onNewFolder={() => setShowNewFolder(true)}
@@ -1024,31 +1008,29 @@ export function FileBrowser({
 
   return (
     <div className="relative flex flex-1 min-h-0">
-      {/* Fold the explorer without reparenting or remounting the active document. */}
+      {/* Folder sidebar: in flow on desktop, a drawer on narrow panes */}
       {sidebar && isNarrow && narrowSidebarOpen && (
-        <div className="absolute inset-0 bg-black/50 z-40" onClick={closeDrawer} />
+        <div className="absolute inset-0 bg-black/50 z-40" onClick={() => setNarrowSidebarOpen(false)} />
       )}
-      {sidebar && (
+      {sidebar && (isNarrow ? (
         <div
-          data-file-explorer
           className={cn(
-            "border-e border-border flex-shrink-0",
-            isNarrow && "absolute inset-y-0 start-0 z-50 transform transition-transform duration-300 ease-in-out",
-            drawerHidden && "-translate-x-full rtl:translate-x-full",
-            !isNarrow && !isResizing && "transition-[width] duration-300",
+            "absolute inset-y-0 start-0 z-50 w-72 border-e border-border",
+            "transform transition-transform duration-300 ease-in-out",
+            !narrowSidebarOpen && "-translate-x-full rtl:translate-x-full",
           )}
-          style={{ width: fileExplorerWidth(explorerFolded, isNarrow, sidebarWidth) }}
-          aria-hidden={drawerHidden}
-          inert={drawerHidden}
-          onKeyDown={event => {
-            if (isNarrow && narrowSidebarOpen && event.key === 'Escape') closeDrawer();
-          }}
+          aria-hidden={!narrowSidebarOpen}
         >
           {sidebar}
         </div>
-      )}
-      {sidebar && isNarrow && workspace && <div className="w-10 shrink-0" aria-hidden />}
-      {sidebar && !isNarrow && !folded && (
+      ) : (
+        <>
+          <div
+            className={cn("border-e border-border flex-shrink-0", !isResizing && "transition-[width] duration-300")}
+            style={{ width: `${sidebarWidth}px` }}
+          >
+            {sidebar}
+          </div>
           <ResizeHandle
             onResizeStart={() => { dragStartWidth.current = sidebarWidth; setIsResizing(true); }}
             onResize={(delta) => setSidebarWidth(Math.max(180, Math.min(400, dragStartWidth.current + delta)))}
@@ -1058,16 +1040,17 @@ export function FileBrowser({
             }}
             onDoubleClick={() => { setSidebarWidth(SIDEBAR_DEFAULT_WIDTH); localStorage.setItem("files-sidebar-width", String(SIDEBAR_DEFAULT_WIDTH)); }}
           />
-      )}
+        </>
+      ))}
 
       <div className="flex flex-col flex-1 min-w-0">
-        {!workspace && <FilesHeader
+        <FilesHeader
           crumbs={crumbs}
           accountLabel={accountLabel}
           onNavigateCrumb={navigateCrumb}
           onNavigateAccountRoot={() => onNavigate("/", "__account_root__")}
           onDropOnCrumb={moveNames}
-          onMenuClick={isNarrow && sidebar && toggleExplorer || undefined}
+          onMenuClick={isNarrow && sidebar ? () => setNarrowSidebarOpen((v) => !v) : undefined}
           menuOpen={narrowSidebarOpen}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
@@ -1086,7 +1069,7 @@ export function FileBrowser({
           compact={isMobile}
           toolsHidden={accountPickerMode}
           selection={selectionActions}
-        />}
+        />
 
         {error && (
           <div role="alert" className="mx-4 mt-3 px-3 py-2 rounded-md bg-destructive/10 text-destructive text-sm flex items-center gap-2">
@@ -1100,8 +1083,7 @@ export function FileBrowser({
         )}
 
         <div className="relative flex flex-1 min-h-0">
-          {workspace && <div data-file-workspace={workspace.id} className={cn('flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden', isResizing && 'pointer-events-none')}>{workspace.content}</div>}
-          {!workspace && <div
+          <div
             ref={scrollAreaRef}
             className="relative flex-1 min-w-0 overflow-y-auto"
             onMouseDown={handleMarqueeMouseDown}
@@ -1133,9 +1115,9 @@ export function FileBrowser({
                 }}
               />
             )}
-          </div>}
+          </div>
 
-          {!workspace && isDraggingFiles && (
+          {isDraggingFiles && (
             <div className="absolute inset-2 z-30 rounded-xl border-2 border-dashed border-primary bg-primary/5 flex items-center justify-center pointer-events-none">
               <div className="text-center bg-background/90 rounded-lg px-5 py-4 shadow-sm">
                 <Upload className="w-8 h-8 text-primary mx-auto mb-2" />
@@ -1144,9 +1126,9 @@ export function FileBrowser({
             </div>
           )}
 
-          {!workspace && detailsPanel}
+          {detailsPanel}
 
-          {!workspace && isNarrow && canCreate && !selectionActions && (
+          {isNarrow && canCreate && !selectionActions && (
             <Button
               size="icon"
               className="absolute bottom-4 end-4 z-20 h-12 w-12 rounded-full shadow-lg"

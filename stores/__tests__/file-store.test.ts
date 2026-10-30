@@ -112,7 +112,6 @@ describe('file-store hierarchy (issue #379)', () => {
       pathStack: [{ id: null, name: '' }],
       resources: [],
       allFolders: [],
-      allFiles: [],
       selectedResources: new Set(),
       clipboard: null,
       lastAction: null,
@@ -143,10 +142,9 @@ describe('file-store hierarchy (issue #379)', () => {
     await useFileStore.getState().navigate('folder', 'Folder');
     expect(useFileStore.getState().resources.map(node => node.id)).toEqual(['nested']);
     expect(useFileStore.getState().allFolders.map(node => node.id)).toEqual(['folder']);
-    expect(useFileStore.getState().allFiles.map(node => node.id)).toEqual(['nested', 'root']);
     expect(reads).toBe(1);
     useFileStore.getState().clearClient();
-    expect(useFileStore.getState().allFiles).toEqual([]);
+    expect(useFileStore.getState().resources).toEqual([]);
   });
 
   it('does not republish a previous account after its asynchronous listing completes', async () => {
@@ -162,7 +160,6 @@ describe('file-store hierarchy (issue #379)', () => {
     await useFileStore.getState().navigate(null);
     release([file('private-old', 'private-old.txt', null)]);
     await oldLoad;
-    expect(useFileStore.getState().allFiles.map(node => node.id)).toEqual(['current']);
     expect(useFileStore.getState().resources.map(node => node.id)).toEqual(['current']);
     expect(useFileStore.getState().currentAccountId).toBe('current-account');
   });
