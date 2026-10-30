@@ -1,10 +1,4 @@
 {
-  "plugin_file_grants": {
-    "until_revoked": "until you revoke it (no expiry)",
-    "title": "Background file read access",
-    "message": "{plugin} · {account} → {origin}\n\nRead-only access to:\n{paths}\n\nContinues when this window is closed. Expires: {expires}. You can revoke this access. Native account credentials stay on this host.",
-    "allow": "Allow read access"
-  },
   "meta_description": "Minimalist webmail client using JMAP protocol",
   "login": {
     "title": "Webmail",
@@ -4401,12 +4395,6 @@
       "ui_app_page": {
         "title": "Add pages",
         "body": "Add its own pages to the app, each with a button in the navigation bar."
-      },
-      "ui_embedded_view": {
-        "title": "Open external views inside the app",
-        "body": "Display approved external pages inside {appName}, exchange messages and wait for the plugin before leaving. External pages remain separate from your mail session.",
-        "force_close": "Close this view without waiting? Its work may not be saved.",
-        "close_failed": "The plugin did not finish closing. You can keep working or close the view without waiting."
       },
       "http_proxy": {
         "title": "Use accounts you connect",

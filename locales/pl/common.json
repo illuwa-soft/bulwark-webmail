@@ -1,10 +1,4 @@
 {
-  "plugin_file_grants": {
-    "until_revoked": "do odwołania uprawnienia (bez wygaśnięcia)",
-    "title": "Odczyt plików w tle",
-    "message": "{plugin} · {account} → {origin}\n\nDostęp tylko do odczytu:\n{paths}\n\nDziała po zamknięciu okna. Wygasa: {expires}. Możesz cofnąć dostęp. Dane logowania konta natywnego pozostają na tym hoście.",
-    "allow": "Zezwól na odczyt"
-  },
   "meta_description": "Minimalistyczny klient poczty internetowej wykorzystujący protokół JMAP",
   "login": {
     "title": "Webmail",
@@ -4418,7 +4412,6 @@
         "title": "Własne strony",
         "body": "Dodaje do aplikacji własne strony, każdą z przyciskiem na pasku nawigacyjnym."
       },
-      "ui_embedded_view": { "title": "Open external views inside the app", "body": "Display approved external pages inside {appName}, exchange messages and wait for the plugin before leaving. External pages remain separate from your mail session.", "force_close": "Close this view without waiting? Its work may not be saved.", "close_failed": "The plugin did not finish closing. You can keep working or close the view without waiting." },
       "http_proxy": {
         "title": "Korzystanie z połączonych przez Ciebie kont",
         "body": "Wysyła żądania przez serwer {appName} z użyciem konta lub klucza skonfigurowanego przez Ciebie lub Twojego administratora. Wtyczka nigdy nie widzi hasła, ale może zrobić na tym serwerze wszystko, co może to konto."

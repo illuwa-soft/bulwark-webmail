@@ -1,10 +1,4 @@
 {
-  "plugin_file_grants": {
-    "until_revoked": "tot je de toestemming intrekt (zonder vervaldatum)",
-    "title": "Bestanden op de achtergrond lezen",
-    "message": "{plugin} · {account} → {origin}\n\nAlleen-lezen toegang tot:\n{paths}\n\nGaat door als dit venster wordt gesloten. Verloopt: {expires}. U kunt de toegang intrekken. De inloggegevens van het oorspronkelijke account blijven op deze host.",
-    "allow": "Leestoegang toestaan"
-  },
   "meta_description": "Minimalistische webmailclient die het JMAP-protocol gebruikt",
   "login": {
     "title": "Webmail",
@@ -4418,7 +4412,6 @@
         "title": "Pagina's toevoegen",
         "body": "Eigen pagina's toevoegen aan de app, elk met een knop in de navigatiebalk."
       },
-      "ui_embedded_view": { "title": "Open external views inside the app", "body": "Display approved external pages inside {appName}, exchange messages and wait for the plugin before leaving. External pages remain separate from your mail session.", "force_close": "Close this view without waiting? Its work may not be saved.", "close_failed": "The plugin did not finish closing. You can keep working or close the view without waiting." },
       "http_proxy": {
         "title": "Accounts gebruiken die je koppelt",
         "body": "Verzoeken via de server van {appName} sturen met een account of sleutel die jij of je beheerder heeft ingesteld. De plug-in ziet het wachtwoord nooit, maar kan alles doen wat dat account op zijn eigen server mag."

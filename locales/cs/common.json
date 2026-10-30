@@ -1,10 +1,4 @@
 {
-  "plugin_file_grants": {
-    "until_revoked": "do odvolání oprávnění (bez vypršení)",
-    "title": "Čtení souborů na pozadí",
-    "message": "{plugin} · {account} → {origin}\n\nPřístup pouze pro čtení:\n{paths}\n\nPokračuje po zavření okna. Platnost do: {expires}. Přístup lze odvolat. Přihlašovací údaje původního účtu zůstávají na tomto hostiteli.",
-    "allow": "Povolit čtení"
-  },
   "meta_description": "Minimalistický webmailový klient využívající protokol JMAP",
   "login": {
     "title": "Webmail",
@@ -4418,7 +4412,6 @@
         "title": "Přidávat stránky",
         "body": "Přidává do aplikace vlastní stránky, každou s tlačítkem v navigačním panelu."
       },
-      "ui_embedded_view": { "title": "Open external views inside the app", "body": "Display approved external pages inside {appName}, exchange messages and wait for the plugin before leaving. External pages remain separate from your mail session.", "force_close": "Close this view without waiting? Its work may not be saved.", "close_failed": "The plugin did not finish closing. You can keep working or close the view without waiting." },
       "http_proxy": {
         "title": "Používat účty, které připojíte",
         "body": "Odesílá požadavky přes server aplikace {appName} pomocí účtu nebo klíče, který jste nastavili vy nebo váš správce. Plugin nikdy nevidí heslo, ale může na příslušném serveru dělat cokoli, co může tento účet."

@@ -342,7 +342,6 @@ export async function POST(request: NextRequest) {
       ...(manifest.configSchema ? { configSchema: manifest.configSchema } : {}),
       ...(manifest.settingsSchema ? { settingsSchema: manifest.settingsSchema } : {}),
       ...(manifest.frameOrigins ? { frameOrigins: manifest.frameOrigins } : {}),
-      ...(manifest.framePaths ? { framePaths: manifest.framePaths } : {}),
       ...(manifest.httpOrigins ? { httpOrigins: manifest.httpOrigins } : {}),
       ...(manifest.apiPostPaths ? { apiPostPaths: manifest.apiPostPaths } : {}),
       ...(manifest.locales ? { locales: manifest.locales } : {}),

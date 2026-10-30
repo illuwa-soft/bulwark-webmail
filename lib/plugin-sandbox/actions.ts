@@ -5,7 +5,13 @@
 
 import { slotSpec } from '../plugin-slot-catalog';
 import { isAllowedPluginCombo } from './shortcuts';
-import type { EmbeddedViewOwner } from '../plugin-embedded/contracts';
+
+export interface ActionOwner {
+  container: HTMLElement;
+  slot: string | null;
+  signal: AbortSignal;
+  invokeAction?(surface: string, actionId: string, context: Record<string, unknown>): Promise<void>;
+}
 
 export interface PluginAction {
   id: string;
@@ -43,7 +49,7 @@ export interface RegisteredAction extends PluginAction {
   pluginId: string;
   pluginName: string;
   /** Host-only frame identity; never accepted from action JSON. */
-  owner?: EmbeddedViewOwner;
+  owner?: ActionOwner;
   instanceId?: string;
 }
 
@@ -124,8 +130,8 @@ export function checkActions(value: unknown): PluginAction[] {
 const registry = new Map<string, Map<string, RegisteredAction[]>>();
 const listeners = new Set<() => void>();
 const snapshots = new Map<string, RegisteredAction[]>();
-const frameActions = new Map<EmbeddedViewOwner, RegisteredAction[]>();
-const observedOwners = new WeakSet<EmbeddedViewOwner>();
+const frameActions = new Map<ActionOwner, RegisteredAction[]>();
+const observedOwners = new WeakSet<ActionOwner>();
 
 function changed(): void {
   snapshots.clear();
@@ -152,7 +158,7 @@ export function setPluginActions(pluginId: string, pluginName: string, surface: 
 
 /** Bind editor controls to their native workspace and remove only that frame's declarations on abort.
  * 편집 컨트롤을 네이티브 작업 영역에 결합하고 해제 시 해당 프레임의 선언만 제거합니다. */
-export function setFileEditorActions(pluginId: string, pluginName: string, actions: PluginAction[], owner: EmbeddedViewOwner | undefined): void {
+export function setFileEditorActions(pluginId: string, pluginName: string, actions: PluginAction[], owner: ActionOwner | undefined): void {
   const instanceId = owner?.container.closest('[data-file-editor-instance]')?.getAttribute('data-file-editor-instance');
   if (!owner || owner.slot !== 'file-editor' || owner.signal.aborted || !owner.invokeAction || !instanceId) {
     throw new Error('File editor actions require their exact live native workspace');

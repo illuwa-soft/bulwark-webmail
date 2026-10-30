@@ -3,18 +3,10 @@
 // Responses come back whole (text, JSON, bytes) or as a stream of chunks for
 // large downloads and AI answers; uploads report progress.
 
-import type { InstalledPlugin, PluginFileGrant } from '../plugin-types';
-import { fileGrantExpiresAt } from '../plugin-file-grant-policy';
+import type { InstalledPlugin } from '../plugin-types';
 import { apiFetch, withBasePath } from '../browser-navigation';
 import { requestConnect, forgetCredentials, credentialOverview } from './connect-dialog';
-import { awaitDialog } from './host-dialog';
-import { writeScope } from './host-api-write-scope';
 import { useAccountStore } from '@/stores/account-store';
-import { IS_LITE } from '../lite';
-import { createTranslator } from 'next-intl';
-import { LOCALE_LOADERS } from '@/components/providers/intl-provider';
-import { getEffectiveLocale } from '@/i18n/detect-locale';
-import type enMessages from '@/locales/en/common.json';
 
 /** Pin requests to the active host cookie slot; a sandbox cannot select another account.
  * 활성 호스트 쿠키 슬롯에 요청을 고정해 샌드박스가 다른 계정을 선택하지 못하게 합니다. */
@@ -315,59 +307,4 @@ export async function proxyAccounts(plugin: InstalledPlugin): Promise<{ credenti
 export async function proxyDisconnect(plugin: InstalledPlugin, args: unknown[]): Promise<boolean> {
   const { id } = credentialSpec(plugin, args[0]);
   return forgetCredentials(plugin.id, id);
-}
-
-/** Read public consent state; capability tokens remain server-to-server only.
- * 공개 승인 상태만 읽고 권한 토큰은 서버 간 통신에만 둡니다. */
-export async function proxyFileGrant(plugin: InstalledPlugin, args: unknown[]): Promise<PluginFileGrant> {
-  if (IS_LITE) throw new Error('Background file access requires Bulwark Full');
-  const { id } = credentialSpec(plugin, args[0]);
-  const scope = writeScope(plugin, 'files:read', 'proxy.fileGrant');
-  const query = new URLSearchParams({ plugin: plugin.id, credential: id });
-  const response = await apiFetch(`/api/plugin-file-grants?${query}`, { headers: activeAccountHeaders() });
-  scope.check();
-  if (!response.ok) throw new Error('File delegation is unavailable');
-  const result = await response.json() as { grant: PluginFileGrant };
-  scope.check();
-  return result.grant;
-}
-
-/** Require host-owned consent for exact paths, destination and the explicitly requested lifetime.
- * 정확한 경로·대상·명시적으로 요청한 접근 기간을 호스트 대화상자로 승인받습니다. */
-export async function proxyGrantFiles(plugin: InstalledPlugin, args: unknown[]): Promise<PluginFileGrant> {
-  if (IS_LITE) throw new Error('Background file access requires Bulwark Full');
-  const { id } = credentialSpec(plugin, args[0]);
-  const scope = writeScope(plugin, 'files:read', 'proxy.grantFiles');
-  const input = args[1] as { paths?: unknown; expiresIn?: unknown } | undefined;
-  if (!Array.isArray(input?.paths) || !input.paths.length || input.paths.length > 100 || input.paths.some((value) => typeof value !== 'string' || !value || value.length > 500 || [...value].some((char) => char.charCodeAt(0) < 32))) throw new Error('Select 1–100 file/folder paths');
-  const expiresAt = fileGrantExpiresAt(input.expiresIn);
-  const query = new URLSearchParams({ plugin: plugin.id, credential: id });
-  const headers = activeAccountHeaders();
-  const preview = await apiFetch(`/api/plugin-file-grants?${query}`, { headers });
-  if (!preview.ok) throw new Error('File delegation is unavailable');
-  const info = await preview.json() as { origin: string };
-  const locale = getEffectiveLocale();
-  const catalog = await (LOCALE_LOADERS[locale] ?? LOCALE_LOADERS.en)();
-  const t = createTranslator({ locale, messages: catalog.plugin_file_grants as typeof enMessages.plugin_file_grants });
-  scope.check();
-  let expires = t('until_revoked');
-  if (expiresAt !== null) expires = new Date(expiresAt).toLocaleString(locale);
-  const confirmed = await awaitDialog({ pluginId: plugin.id, kind: 'confirm', title: t('title'), message: t('message', { plugin: plugin.name, account: scope.client.getUsername(), origin: info.origin, paths: input.paths.join('\n'), expires }), confirmLabel: t('allow') });
-  scope.check();
-  if (!confirmed) return { granted: false, paths: [], expiresAt: null };
-  const response = await apiFetch(`/api/plugin-file-grants?${query}`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify({ paths: input.paths, expiresIn: input.expiresIn, expectedOrigin: info.origin }) });
-  scope.check();
-  if (!response.ok) throw new Error('Unable to grant file access');
-  const result = await response.json() as PluginFileGrant;
-  scope.check();
-  return result;
-}
-
-/** Revoke future reads without needing cooperation from the backend.
- * 백엔드의 협조 없이 이후 읽기를 철회합니다. */
-export async function proxyRevokeFiles(plugin: InstalledPlugin, args: unknown[]): Promise<boolean> {
-  if (IS_LITE) throw new Error('Background file access requires Bulwark Full');
-  const { id } = credentialSpec(plugin, args[0]);
-  const query = new URLSearchParams({ plugin: plugin.id, credential: id });
-  return (await apiFetch(`/api/plugin-file-grants?${query}`, { method: 'DELETE', headers: activeAccountHeaders() })).ok;
 }

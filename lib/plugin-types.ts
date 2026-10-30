@@ -144,8 +144,6 @@ export interface PluginManifest {
    * Validated at install time and merged into the host CSP `frame-src`.
    */
   frameOrigins?: string[];
-  /** Paths admitted by ui.embeddedView: exact paths or trailing-slash prefixes. */
-  framePaths?: string[];
   /**
    * External HTTPS origins this plugin may make `api.http.fetch()` requests
    * to. Same syntax as `frameOrigins`. Validated at install time. Each
@@ -265,9 +263,8 @@ export interface InstalledPlugin {
    * detect re-uploads of the same version so clients re-download the JS.
    */
   bundleHash?: string;
-  /** Declared origins and paths admitted for host-owned embedded views. */
+  /** Declared origins a plugin may embed inside its sandbox. */
   frameOrigins?: string[];
-  framePaths?: string[];
   /**
    * Validated allowlist of external HTTPS origins this plugin may target via
    * `api.http.fetch()`. Carried over from the manifest at install time.
@@ -622,14 +619,6 @@ export interface FileResourceView {
   mimeType: string;
   path: string;
   modified: string;
-}
-
-/** Public background-read consent metadata; capability tokens are server-to-server only. */
-export interface PluginFileGrant {
-  granted: boolean;
-  paths: string[];
-  /** UTC Unix milliseconds; null with granted=true means until revoked, otherwise no grant. */
-  expiresAt: number | null;
 }
 
 export interface IdentityView {
@@ -1377,7 +1366,6 @@ export const ALL_PERMISSIONS = [
   'ui:calendar-action', 'ui:admin-page',
   // Surfaces from the slot catalogue (lib/plugin-slot-catalog.ts).
   'ui:message-list', 'ui:contacts', 'ui:tasks', 'ui:files', 'ui:commands', 'ui:app-page',
-  'ui:embedded-view',
   // Requests that carry an account or API key, added by the server (lib/plugin-secrets).
   'http:proxy',
   'admin:config',

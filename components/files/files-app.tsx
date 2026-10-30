@@ -128,7 +128,7 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
   const [editFile, setEditFile] = useState<string | null>(null);
   const wopiStatus = useWopiStatus(filesEnabled);
   const pluginEditorRef = useRef<FileEditorHandle>(null);
-  const { target: pluginEditorTarget, canOpen: canOpenPluginFile, open: openPluginFile, close: closePluginFile, runAfterLeave } = usePluginFileEditor(activeAccountId, () => pluginEditorRef.current?.requestClose('navigation') ?? Promise.resolve(false));
+  const { target: pluginEditorTarget, canOpen: canOpenPluginFile, open: openPluginFile, close: closePluginFile, runAfterLeave } = usePluginFileEditor(activeAccountId, () => pluginEditorRef.current?.requestClose() ?? Promise.resolve(false));
   const isOfficeEditable = useCallback((name: string) => canOpenPluginFile(name) || canWopiOpen(wopiStatus, name), [canOpenPluginFile, wopiStatus]);
 
   /** Select the current native resource after the previous workspace has completed.
@@ -155,7 +155,7 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
 
   /** Keep the existing toolbar's exit bound to the live native editor host.
    * 기존 도구 모음의 종료를 활성 네이티브 편집 호스트에 결합합니다. */
-  const requestCloseFile = useCallback(() => pluginEditorRef.current?.requestClose('close') ?? Promise.resolve(false), []);
+  const requestCloseFile = useCallback(() => pluginEditorRef.current?.requestClose() ?? Promise.resolve(false), []);
 
   const pluginWorkspace = useMemo(() => {
     if (!pluginEditorTarget) return undefined;

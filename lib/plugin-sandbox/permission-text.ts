@@ -20,7 +20,6 @@ export const HIGH_RISK_PERMISSIONS: ReadonlySet<string> = new Set([
   'email:render-takeover',
   'http:fetch',
   'http:post',
-  'ui:embedded-view',
   'filters:write',
   'http:proxy',
   // A plugin can point the reply-to of a sender address elsewhere, so

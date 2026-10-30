@@ -1,5 +1,4 @@
-import { actionsFor, type RegisteredAction } from '@/lib/plugin-sandbox/actions';
-import type { EmbeddedViewOwner } from '@/lib/plugin-embedded/contracts';
+import { actionsFor, type ActionOwner, type RegisteredAction } from '@/lib/plugin-sandbox/actions';
 
 type EditorHost = { pluginId: string; root: Element; close(): Promise<boolean> };
 const hosts = new Set<EditorHost>();
@@ -21,9 +20,8 @@ export function registerFileEditorHost(host: EditorHost) {
   return () => { hosts.delete(host); };
 }
 
-/** A provider may finish only its own live file-editor; the host still runs the leave protocol.
- * 제공자는 자신의 활성 파일 편집기만 종료할 수 있으며 호스트가 이탈 절차를 수행합니다. */
-export function closeFileEditor(pluginId: string, owner: EmbeddedViewOwner | undefined) {
+/** A provider may close only its own live native file-editor. */
+export function closeFileEditor(pluginId: string, owner: ActionOwner | undefined) {
   if (!owner || owner.slot !== 'file-editor' || owner.signal.aborted) throw new Error('A live file-editor instance is required');
   const host = [...hosts].find((candidate) => candidate.pluginId === pluginId && candidate.root.contains(owner.container));
 

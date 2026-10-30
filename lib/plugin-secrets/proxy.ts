@@ -12,7 +12,6 @@ import { DisallowedUrlError, fetchPublicUrl } from '@/lib/security/url-guard';
 import { authHeaderFor, credentialOrigin, privateProxyOrigins, type CredentialInject, type CredentialSpec } from './credentials';
 import { getUserCredential, setUserCredentialSecret, userKey, type VaultUser } from './vault';
 import { declaredUserCredential } from './known-plugins';
-import { signProxyIdentity, type ProxyIdentityContext } from './identity';
 
 /** Largest request body the proxy forwards (one upload chunk); see proxyClientMaxBodySize in next.config.ts. */
 export const MAX_PROXY_REQUEST_BYTES = 100 * 1024 * 1024;
@@ -55,7 +54,6 @@ export class ProxyError extends Error {
 }
 
 export interface ResolvedCredential {
-  attestUser?: boolean;
   origin: string;
   inject: CredentialInject;
   secret?: string;
@@ -90,14 +88,13 @@ export async function resolveCredential(user: VaultUser, pluginId: string, crede
   const origin = spec.origin ?? credentialOrigin(spec.originKey ? config[spec.originKey] : undefined);
   // A credential that adds nothing (a keyless service such as a local Ollama)
   // needs only its server.
-  const needsSecret = spec.inject.type !== 'none' || spec.attestUser;
+  const needsSecret = spec.inject.type !== 'none';
   if (!origin || (needsSecret && (typeof secret !== 'string' || !secret))) return null;
   const username = spec.usernameKey ? config[spec.usernameKey] : undefined;
   return {
     origin, inject: spec.inject, secret: typeof secret === 'string' && secret ? secret : undefined,
     username: typeof username === 'string' ? username : undefined,
     trusted: true, scope: 'admin',
-    attestUser: spec.attestUser,
   };
 }
 
@@ -167,15 +164,6 @@ export function resetProxyLimits(): void {
   running.clear();
 }
 
-/** Apply the same user/plugin budget to server-to-server file callbacks. */
-export function acquireProxySlot(user: VaultUser, pluginId: string): () => void {
-  const who = userKey(user);
-  const slot = takeSlot(who, pluginId);
-  if (!slot.ok) throw Object.assign(new ProxyError('Too many requests', 429, 'rate_limited'), { retryAfter: slot.retryAfter });
-  let released = false;
-  return () => { if (!released) { released = true; releaseSlot(who); } };
-}
-
 // ─── Forwarding ───────────────────────────────────────────────
 
 /** Ask the proxy to store a field of a JSON response as the secret. */
@@ -187,7 +175,6 @@ export interface CaptureSpec {
 }
 
 export interface ProxyInput {
-  identity?: ProxyIdentityContext;
   user: VaultUser;
   pluginId: string;
   credentialId: string;
@@ -317,10 +304,6 @@ export async function proxyRequest(input: ProxyInput): Promise<Response> {
 
   try {
     const headers = forwardHeaders(input.headers, credential);
-    if (credential.attestUser) {
-      if (!input.identity || !credential.secret) throw new ProxyError('Native identity is required', 401, 'identity_required');
-      headers['x-bulwark-identity'] = await signProxyIdentity(input.identity, input.pluginId, input.credentialId, credential.origin, credential.secret);
-    }
     // Read the whole body first and send it with a Content-Length. Streamed
     // (chunked) uploads reach some servers empty: Paperless (Django) answers
     // "No file was submitted". Next has buffered the body for proxy.ts

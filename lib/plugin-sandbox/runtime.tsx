@@ -37,12 +37,11 @@ import { isFillableSlot, isInlineSlot, MAX_INLINE_SLOT_WIDTH } from './slot-layo
 import type {
   AppInfoView, AppSettingsView, SettingsSearchResult, CalendarEventInput, CalendarEventView, CalendarView, ComposeInput, DraftInput, EmailReadView,
   EmailSummary, IdentityPatch, IdentityView, MailboxView, NotificationInput, SlotName, TaskInput,
-  TaskView, TemplateInput, TemplateView, VacationInput, VacationView, ComposerSnapshot, ComposerAttachmentData, PluginFileGrant,
+  TaskView, TemplateInput, TemplateView, VacationInput, VacationView, ComposerSnapshot, ComposerAttachmentData,
 } from '../plugin-types';
 import { AddressBook, ContactCard } from '../jmap/types';
 import { EncryptionAtRestConfig, PublicKeyInput } from '@/stores/account-security-store';
 import type { EmailQueryOptions, EmailQueryPage, CalendarQueryOptions, CalendarQueryPage, ContactQueryOptions, ContactQueryPage, FileQueryOptions, FileQueryPage, FileText } from '../plugin-read-types';
-import type { EmbeddedViewCommand } from '../plugin-embedded/contracts';
 
 // ─── Module-scope state ──────────────────────────────────────
 
@@ -570,8 +569,6 @@ function buildPluginApi(manifest: PluginManifest) {
       warning: (m: string) => { void callApi('toast.warning', [m]); },
     },
     ui: {
-      /** A page-scoped external view. The plugin owns its protocol and leave acknowledgement. */
-      embeddedView: (command: EmbeddedViewCommand) => callApi('ui.embeddedView', [command]),
       /** Opens a host-rendered confirm dialog. Resolves to true on confirm, false otherwise.
        *  No timeout - it waits for the user's choice. */
       confirm: (opts: { title?: string; message?: string; confirmLabel?: string; cancelLabel?: string; danger?: boolean }) =>
@@ -630,7 +627,7 @@ function buildPluginApi(manifest: PluginManifest) {
       /** Full pages with a button in the navigation bar; the `app-page` slot renders them. */
       setPages: (pages: Array<{ id: string; title: string; icon?: string }>) =>
         callApi('ui.setPages', [pages]) as Promise<void>,
-      /** Finishes this provider's current Files editor through the host leave guard. */
+      /** Closes this provider's current native Files editor. */
       closeFileEditor: () => callApi('ui.closeFileEditor', [], 0) as Promise<boolean>,
       /**
        * The header of this plugin's sidebar section (the host draws it like
@@ -665,12 +662,6 @@ function buildPluginApi(manifest: PluginManifest) {
        */
       accounts: () => callApi('proxy.accounts', []) as Promise<Array<{ credentialId: string; scope: 'user' | 'admin'; origin?: string; username?: string; connected: boolean }>>,
       disconnect: (credentialId: string) => callApi('proxy.disconnect', [credentialId]) as Promise<boolean>,
-      /** Inspect a read grant without exposing its token. */
-      fileGrant: (credentialId: string) => callApi('proxy.fileGrant', [credentialId]) as Promise<PluginFileGrant>,
-      /** Ask host consent for scoped background reads: defaults to seven days; explicit null lasts until revoked.
-       * 범위 기반 백그라운드 읽기를 승인받으며 기본 7일·명시적 null은 철회할 때까지입니다. */
-      grantFiles: (credentialId: string, options: { paths: string[]; expiresIn?: number | null }) => callApi('proxy.grantFiles', [credentialId, options], 0) as Promise<PluginFileGrant>,
-      revokeFiles: (credentialId: string) => callApi('proxy.revokeFiles', [credentialId]) as Promise<boolean>,
     },
     // Reading mail (permission: email:read) and keyword mutations
     // (permission: email:write). Keywords follow JMAP syntax, e.g.

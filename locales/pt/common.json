@@ -1,10 +1,4 @@
 {
-  "plugin_file_grants": {
-    "until_revoked": "até revogar a permissão (sem expiração)",
-    "title": "Leitura de ficheiros em segundo plano",
-    "message": "{plugin} · {account} → {origin}\n\nAcesso só de leitura a:\n{paths}\n\nContinua após fechar esta janela. Expira: {expires}. Pode revogar o acesso. As credenciais da conta nativa permanecem neste servidor.",
-    "allow": "Permitir leitura"
-  },
   "meta_description": "Cliente de webmail minimalista que usa o protocolo JMAP",
   "login": {
     "title": "Webmail",
@@ -4418,7 +4412,6 @@
         "title": "Adicionar páginas",
         "body": "Adicionar as próprias páginas ao aplicativo, cada uma com um botão na barra de navegação."
       },
-      "ui_embedded_view": { "title": "Open external views inside the app", "body": "Display approved external pages inside {appName}, exchange messages and wait for the plugin before leaving. External pages remain separate from your mail session.", "force_close": "Close this view without waiting? Its work may not be saved.", "close_failed": "The plugin did not finish closing. You can keep working or close the view without waiting." },
       "http_proxy": {
         "title": "Usar contas que você conecta",
         "body": "Enviar solicitações pelo servidor do {appName} com uma conta ou chave configurada por você ou pelo seu administrador. O plugin nunca vê a senha, mas pode fazer tudo o que essa conta pode fazer no próprio servidor."

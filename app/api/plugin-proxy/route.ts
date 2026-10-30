@@ -4,7 +4,6 @@ import { rejectCrossOriginRequest } from '@/lib/security/same-origin';
 import { getStalwartCredentials } from '@/lib/stalwart/credentials';
 import { CREDENTIAL_ID_RE } from '@/lib/plugin-secrets/credentials';
 import { ProxyError, proxyRequest, type CaptureSpec } from '@/lib/plugin-secrets/proxy';
-import { proxyIdentityContext } from '@/lib/plugin-secrets/identity';
 
 const PLUGIN_ID_RE = /^[a-z0-9][a-z0-9-]*[a-z0-9]$/;
 const FIELD_RE = /^[A-Za-z_][A-Za-z0-9_]{0,63}$/;
@@ -61,7 +60,6 @@ export async function POST(request: NextRequest) {
   try {
     return await proxyRequest({
       user: { username: creds.username, serverUrl: creds.serverUrl },
-      identity: proxyIdentityContext(request, creds),
       pluginId,
       credentialId,
       url,
