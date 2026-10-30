@@ -21,8 +21,6 @@ import { resolveDateLocale } from '../utils';
 import { getEffectiveTimeZone } from '../timezone';
 import { getEffectiveLocale } from '@/i18n/detect-locale';
 import { useSettingsStore, type DateLocale } from '@/stores/settings-store';
-import type { ActionOwner } from './actions';
-import { slotPropsFor } from './permissions';
 import type {
   SandboxToHost, HostToSandbox, InitMsg, InitPayload, StreamChunkMsg, StreamEndMsg, StreamProgressMsg,
   FloatingDropdownOpenMsg, FloatingDropdownUpdateMsg, FloatingDropdownCloseMsg,
@@ -296,8 +294,6 @@ export class SandboxInstance {
   /** Own notification cleanup without relying on optional view extensions.
    * 선택적 뷰 확장에 의존하지 않고 알림 정리 수명을 소유합니다. */
   private readonly toastLifetime = new AbortController();
-  private readonly actionLifetime = new AbortController();
-  private readonly actionOwner: ActionOwner;
   private persistentOwner?: PersistentStorageOwner;
 
   private pendingHookInvokes = new Map<string, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
@@ -323,18 +319,6 @@ export class SandboxInstance {
       try { this.persistentOwner = capturePersistentStorageOwner(); } catch { /* not signed in yet */ }
     }
     this.mode = initPayload.mode;
-    this.actionOwner = {
-      slot: initPayload.mode === 'slot' && initPayload.slot || null,
-      signal: this.actionLifetime.signal,
-      container: hostContainer,
-      invokeAction: async (surface, actionId, context) => {
-        if (this.destroyed || surface !== 'file-editor-actions' || initPayload.mode !== 'slot' || initPayload.slot !== 'file-editor') {
-          throw new Error('The file editor action owner changed');
-        }
-        const visible = slotPropsFor(this.plugin, 'file-editor-actions', context);
-        await this.invokeHook('onAction', [{ surface, actionId, context: visible }]);
-      },
-    };
     this.privileged = initPayload.tier === 'privileged';
     this.inline = initPayload.mode === 'slot' && isInlineSlot(initPayload.slot);
 
@@ -481,7 +465,7 @@ export class SandboxInstance {
         void (async () => {
           try {
             if (!IS_LITE && method.startsWith('storage.persistent.') && !this.persistentOwner) this.persistentOwner = capturePersistentStorageOwner();
-            const result = await dispatchApiCall(this.plugin, method, args ?? [], { privileged: this.privileged, sink: this, actionOwner: this.actionOwner, persistentOwner: this.persistentOwner, toastSignal: this.toastLifetime.signal });
+            const result = await dispatchApiCall(this.plugin, method, args ?? [], { privileged: this.privileged, sink: this, persistentOwner: this.persistentOwner, toastSignal: this.toastLifetime.signal });
             this.send({ type: 'api-response', id, ok: true, result });
           } catch (err) {
             this.send({ type: 'api-response', id, ok: false, error: (err as Error).message ?? String(err) });
@@ -653,7 +637,6 @@ export class SandboxInstance {
     if (this.destroyed) return;
     this.destroyed = true;
     this.toastLifetime.abort();
-    this.actionLifetime.abort();
     liveInstances.delete(this);
     window.removeEventListener('message', this.listener);
     this.iframe.remove();

@@ -16,15 +16,10 @@ import {
 
 const EMPTY: RegisteredAction[] = [];
 
-/** Filter a surface's declarations by content and the host-created workspace instance.
- * 내용과 호스트가 만든 작업 인스턴스로 표시할 선언을 제한합니다. */
-export function usePluginActions(surface: string, filter: { mailboxRole?: string | null; mimeType?: string | null; fileName?: string | null; instanceId?: string } = {}) {
+/** The actions plugins declared for a surface, filtered by folder role or MIME type. */
+export function usePluginActions(surface: string, filter: { mailboxRole?: string | null; mimeType?: string | null } = {}) {
   const all = useSyncExternalStore(subscribeActions, () => actionsFor(surface), () => EMPTY);
-  return all.filter((action) => {
-    if (filter.instanceId !== undefined && action.instanceId !== filter.instanceId) return false;
-    if (action.owner && filter.instanceId === undefined) return false;
-    return actionApplies(action, filter);
-  });
+  return all.filter((a) => actionApplies(a, filter));
 }
 
 interface PluginActionsProps {
@@ -36,11 +31,6 @@ interface PluginActionsProps {
   variant?: 'buttons' | 'menu';
   mailboxRole?: string | null;
   mimeType?: string | null;
-  fileName?: string | null;
-  /** A host-created live workspace; scoped controls never appear on other surfaces. */
-  instanceId?: string;
-  /** Host-owned routing for actions that mount a native provider frame. */
-  onAction?: (action: RegisteredAction) => Promise<void>;
   className?: string;
   /** Icon-only buttons with the label as tooltip (narrow toolbars). */
   compact?: boolean;
@@ -54,20 +44,19 @@ interface PluginActionsProps {
  * Buttons or menu entries plugins declared with api.ui.setActions. The host
  * draws them so they match the app; the plugin gets the click.
  */
-export function PluginActions({ surface, context, variant = 'buttons', mailboxRole, mimeType, fileName, instanceId, onAction, className, compact, overflow, onRan }: PluginActionsProps) {
-  const actions = usePluginActions(surface, { mailboxRole, mimeType, fileName, instanceId });
+export function PluginActions({ surface, context, variant = 'buttons', mailboxRole, mimeType, className, compact, overflow, onRan }: PluginActionsProps) {
+  const actions = usePluginActions(surface, { mailboxRole, mimeType });
   const [busy, setBusy] = useState<string | null>(null);
   if (actions.length === 0) return null;
   if (overflow && variant === 'buttons') {
-    return <PluginActionsOverflow surface={surface} context={context} mailboxRole={mailboxRole} mimeType={mimeType} fileName={fileName} instanceId={instanceId} onAction={onAction} className={className} />;
+    return <PluginActionsOverflow surface={surface} context={context} mailboxRole={mailboxRole} mimeType={mimeType} className={className} />;
   }
 
   const run = async (action: RegisteredAction) => {
-    const key = actionKey(action);
+    const key = `${action.pluginId}:${action.id}`;
     setBusy(key);
     try {
       onRan?.();
-      if (onAction) { await onAction(action); return; }
       await runAction(action, surface, context);
     } finally {
       setBusy((current) => (current === key ? null : current));
@@ -79,12 +68,11 @@ export function PluginActions({ surface, context, variant = 'buttons', mailboxRo
       <>
         {actions.map((action) => (
           <ContextMenuItem
-            key={actionKey(action)}
+            key={`${action.pluginId}:${action.id}`}
             icon={iconForName(action.icon) ?? Puzzle}
             label={action.label}
             title={action.pluginName}
             destructive={action.danger}
-            disabled={action.disabled || busy === actionKey(action)}
             onClick={() => { void run(action); }}
           />
         ))}
@@ -96,13 +84,13 @@ export function PluginActions({ surface, context, variant = 'buttons', mailboxRo
     <div className={cn('inline-flex flex-wrap items-center gap-1', className)} data-plugin-actions={surface}>
       {actions.map((action) => {
         const Icon = iconForName(action.icon) ?? Puzzle;
-        const key = actionKey(action);
+        const key = `${action.pluginId}:${action.id}`;
         return (
           <button
             key={key}
             type="button"
-            disabled={action.disabled || busy === key}
-            title={actionTitle(action, compact)}
+            disabled={busy === key}
+            title={compact ? `${action.label} (${action.pluginName})` : action.pluginName}
             aria-label={action.label}
             onClick={(e) => { e.stopPropagation(); void run(action); }}
             className={cn(
@@ -122,7 +110,7 @@ export function PluginActions({ surface, context, variant = 'buttons', mailboxRo
 }
 
 /** The actions of a surface behind one "more" button, for toolbars without room for them. */
-function PluginActionsOverflow({ surface, context, mailboxRole, mimeType, fileName, instanceId, onAction, className }: Pick<PluginActionsProps, 'surface' | 'context' | 'mailboxRole' | 'mimeType' | 'fileName' | 'instanceId' | 'onAction' | 'className'>) {
+function PluginActionsOverflow({ surface, context, mailboxRole, mimeType, className }: Pick<PluginActionsProps, 'surface' | 'context' | 'mailboxRole' | 'mimeType' | 'className'>) {
   const t = useTranslations('email_viewer');
   const { contextMenu, openContextMenu, closeContextMenu, menuRef } = useContextMenu<true>();
   return (
@@ -148,26 +136,9 @@ function PluginActionsOverflow({ surface, context, mailboxRole, mimeType, fileNa
           context={context}
           mailboxRole={mailboxRole}
           mimeType={mimeType}
-          fileName={fileName}
-          instanceId={instanceId}
-          onAction={onAction}
           onRan={closeContextMenu}
         />
       </ContextMenu>
     </div>
   );
-}
-
-/** Expose provider-owned state through existing control tooltips, without another status bar.
- * 별도 상태줄 대신 기존 컨트롤의 툴팁으로 제공자가 소유한 상태를 전달합니다. */
-function actionTitle(action: RegisteredAction, compact: boolean | undefined) {
-  if (action.description) return action.description;
-  if (compact) return `${action.label} (${action.pluginName})`;
-  return action.pluginName;
-}
-
-/** Keep a previous instance's completion from clearing a newer control's busy state.
- * 이전 인스턴스의 완료가 새 컨트롤의 실행 상태를 지우지 않도록 식별합니다. */
-function actionKey(action: RegisteredAction) {
-  return [action.pluginId, action.instanceId ?? '', action.id].join(':');
 }

@@ -8,7 +8,7 @@ import { IS_LITE } from '../lite';
 import { doAppGetSettings, doAppSearchSettings } from './host-api-app';
 import { mayOfferSlot, pluginHasPermission } from './permissions';
 import { proxyAccounts, proxyCancel, proxyConnect, proxyDisconnect, proxyFetch, type StreamSink } from './proxy-client';
-import { checkActions, isActionSurface, setPluginActions, setFileEditorActions, type ActionOwner } from './actions';
+import { checkActions, isActionSurface, setPluginActions } from './actions';
 import { checkDayLabels, setDayLabels } from './day-labels';
 import { refreshRowBadges } from './row-badges';
 import { checkPages, setPluginPages } from './pages';
@@ -64,8 +64,6 @@ import { requestPanel } from './panel-requests';
 import { doComposerAttach, doComposerGetBody, doComposerGetSelection, doComposerGetSnapshot, doComposerReadAttachment, doComposerReplaceBody, doComposerReplaceSelection } from './host-api-composer';
 import { doReadPage, doFilesReadText } from './host-api-read-pages';
 import { doPersistentStorage, type PersistentStorageOwner } from './host-api-persistent-storage';
-import { closeFileEditor } from '@/lib/plugin-sandbox/file-editors';
-import { useFileStore } from '@/stores/file-store';
 
 /**
  * Methods only callable from the privileged (same-origin) tier. These expose
@@ -110,7 +108,6 @@ export const PERM_PER_METHOD: Readonly<Record<string, Permission | null>> = {
   'email.getPrimary': 'email:read',
   'email.update': 'email:write',
   'files.get': 'files:read',
-  'files.refresh': 'files:read',
   'email.query': 'email:read',
   'calendar.queryEvents': 'calendar:read',
   'contact.query': 'contacts:read',
@@ -254,7 +251,6 @@ export const PERM_PER_METHOD: Readonly<Record<string, Permission | null>> = {
   'ui.refreshRowBadges': null,
   'ui.setDayLabels': 'ui:calendar-action',
   'ui.setPages': 'ui:app-page',
-  'ui.closeFileEditor': 'ui:files',
   'ui.setSectionTitle': 'ui:sidebar-widget',
   // Open, close or toggle the panel the plugin's slot sits in; the panel's
   // own permission is checked per call (see the slot catalogue).
@@ -1850,7 +1846,7 @@ export async function dispatchApiCall(
   plugin: InstalledPlugin,
   method: string,
   args: unknown[],
-  opts?: { privileged?: boolean; sink?: StreamSink; actionOwner?: ActionOwner; persistentOwner?: PersistentStorageOwner; toastSignal?: AbortSignal },
+  opts?: { privileged?: boolean; sink?: StreamSink; persistentOwner?: PersistentStorageOwner; toastSignal?: AbortSignal },
 ): Promise<unknown> {
   // Tier gate: privileged-only methods are refused for untrusted (null-origin)
   // instances even if the permission is somehow present. Defence-in-depth on
@@ -1870,8 +1866,6 @@ export async function dispatchApiCall(
   }
 
   switch (method) {
-    case 'ui.closeFileEditor': return closeFileEditor(plugin.id, opts?.actionOwner);
-    case 'files.refresh': return useFileStore.getState().refresh();
     case 'email.query':
     case 'calendar.queryEvents':
     case 'contact.query':
@@ -1900,11 +1894,6 @@ export async function dispatchApiCall(
       if (typeof surface !== 'string' || !isActionSurface(surface)) throw new Error(`"${String(surface)}" is not a surface that takes actions`);
       if (!mayOfferSlot(plugin, surface)) throw new Error(`Plugin "${plugin.id}" may not add actions to "${surface}"`);
       const actions = checkActions(args[1]);
-      if (surface === 'file-open-actions' && actions.some((action) => !action.fileExtensions?.length)) throw new Error('File editors require explicit fileExtensions');
-      if (surface === 'file-editor-actions') {
-        setFileEditorActions(plugin.id, plugin.name, actions, opts?.actionOwner);
-        return undefined;
-      }
       setPluginActions(plugin.id, plugin.name, surface, actions);
       return undefined;
     }
