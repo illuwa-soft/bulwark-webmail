@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { InstalledPlugin } from '@/lib/plugin-types';
 
@@ -29,6 +29,7 @@ const pages = await import('@/lib/plugin-sandbox/pages');
 const { useAuthStore } = await import('@/stores/auth-store');
 const { usePluginStore } = await import('@/stores/plugin-store');
 const { isFillableSlot } = await import('@/lib/plugin-sandbox/slot-layout');
+const { requestEmbeddedView } = await import('@/lib/plugin-embedded/requests');
 
 function activate(id: string, slots: string[], fill = false) {
   const plugin: InstalledPlugin = {
@@ -46,10 +47,11 @@ function activate(id: string, slots: string[], fill = false) {
 
 beforeEach(() => {
   createSlotInstance.mockClear();
-  useAuthStore.setState({ isAuthenticated: true, isLoading: false, client: {} as never });
+  useAuthStore.setState({ isAuthenticated: true, isLoading: false, activeAccountId: 'a', client: {} as never });
   usePluginStore.setState({ initialized: true, initializePlugins: vi.fn().mockResolvedValue(undefined) });
 });
 afterEach(() => {
+  cleanup();
   for (const p of registry.all()) registry.deregister(p.plugin.id);
   pages.resetPages();
 });
@@ -92,6 +94,31 @@ describe('plugin pages', () => {
 
     await waitFor(() => expect(createSlotInstance).toHaveBeenCalled());
     expect((createSlotInstance.mock.calls[0][0] as { extraProps: unknown }).extraProps).toEqual({ pageId: 'board', path: '' });
+  });
+
+  it.each([true, false])('uses the existing frameless layout only for a full-height page: fill=%s', async (fill) => {
+    activate('drawing', ['app-page'], fill);
+    act(() => pages.setPluginPages('drawing', 'Drawing', [{ id: 'canvas', title: 'Canvas' }]));
+    const { container } = render(<PluginPageApp linkSegments={['drawing', 'canvas']} />);
+    await waitFor(() => expect(createSlotInstance).toHaveBeenCalled());
+    const page = container.querySelector('[data-plugin-page="drawing/canvas"]');
+    if (!page) throw new Error('Plugin page missing');
+    const owner = { slot: 'app-page', signal: new AbortController().signal, container: page };
+    const policy = { hostOrigin: window.location.origin, frameOrigins: ['https://canvas.test'], framePaths: ['/drawing/'] };
+
+    await act(async () => {
+      requestEmbeddedView('drawing', owner, { action: 'open', url: 'https://canvas.test/drawing/a', title: 'Drawing' }, policy);
+    });
+
+    expect(screen.getByTitle('Drawing')).toHaveAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms');
+    expect(screen.getByTestId('rail-vertical')).toBeVisible();
+    if (fill) {
+      expect(screen.queryByRole('heading', { name: 'Drawing' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'close' })).toBeNull();
+      return;
+    }
+    expect(screen.getByRole('heading', { name: 'Drawing' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'close' })).toBeVisible();
   });
 
   it('says the page is not available, with a way back to Mail, once the plugin is gone', () => {
