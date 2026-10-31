@@ -7,7 +7,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import React from 'react';
-import { act, render, cleanup, screen, waitFor } from '@testing-library/react';
+import { render, cleanup, screen, waitFor } from '@testing-library/react';
 
 const HOST_ORIGIN = window.location.origin;
 
@@ -43,53 +43,6 @@ afterEach(() => {
 });
 
 describe('slot props in the sandbox runtime', () => {
-  it('executes the declaring file editor hook through the actual runtime RPC without background activation', async () => {
-    const { SandboxRuntime } = await import('@/lib/plugin-sandbox/runtime');
-    render(React.createElement(SandboxRuntime));
-    act(() => post(hostWindow, HOST_ORIGIN, {
-      type: 'init',
-      payload: {
-        mode: 'slot', pluginId: 'editor', tier: 'untrusted', slot: 'file-editor', locale: 'en',
-        manifest: { id: 'editor', version: '1.0.0', permissions: ['http:post'], settings: {} },
-        code: `const api = require('@plugin-host'); module.exports = {
-          activate: function () { throw new Error('A slot must not activate the background'); },
-          slots: { 'file-editor': { component: function () { return React.createElement('span', null, 'Editor ready'); } } },
-          hooks: { onAction: function (event) { return api.http.post('/api/editor-fixture', { action: event.actionId, fileId: event.context.file.id }); } }
-        };`,
-        extraProps: { file: { id: 'selected-native-file' } },
-        theme: { dark: false, fontFamily: 'sans-serif', vars: {} },
-      },
-    }));
-    await screen.findByText('Editor ready');
-    const event = { surface: 'file-editor-actions', actionId: 'save', context: { file: { id: 'selected-native-file' } } };
-    post({}, HOST_ORIGIN, { type: 'hook-invoke', id: 'foreign-source', hookName: 'onAction', args: [event] });
-    post(hostWindow, 'https://other.test', { type: 'hook-invoke', id: 'foreign-origin', hookName: 'onAction', args: [event] });
-    expect(hostWindow.postMessage.mock.calls.some(([message]) => message.type === 'api-request')).toBe(false);
-    post(hostWindow, HOST_ORIGIN, { type: 'hook-invoke', id: 'native-save', hookName: 'onAction', args: [event] });
-    const apiCall = () => hostWindow.postMessage.mock.calls.map(([message]) => message).find(message => message.type === 'api-request');
-    await waitFor(() => expect(apiCall()).toMatchObject({ method: 'http.post', args: ['/api/editor-fixture', { action: 'save', fileId: 'selected-native-file' }, undefined] }));
-    const result = { ok: true, status: 200, data: { saved: true } };
-    post(hostWindow, HOST_ORIGIN, { type: 'api-response', id: apiCall().id, ok: true, result });
-    await waitFor(() => expect(hostWindow.postMessage).toHaveBeenCalledWith({ type: 'hook-result', id: 'native-save', ok: true, result }, HOST_ORIGIN));
-  }, 30_000);
-
-  it.each(['settings-page', 'email-banner'])('does not register an editor action hook in the unrelated %s slot', async (slot) => {
-    const { SandboxRuntime } = await import('@/lib/plugin-sandbox/runtime');
-    render(React.createElement(SandboxRuntime));
-    act(() => post(hostWindow, HOST_ORIGIN, {
-      type: 'init',
-      payload: {
-        mode: 'slot', pluginId: 'other', tier: 'untrusted', slot, locale: 'en',
-        manifest: { id: 'other', version: '1.0.0', permissions: [], settings: {} },
-        code: `module.exports = { slots: { '${slot}': { component: function () { return React.createElement('span', null, 'Other ready'); } } }, hooks: { onAction: function () { return 'unexpected'; } } };`,
-        extraProps: {}, theme: { dark: false, fontFamily: 'sans-serif', vars: {} },
-      },
-    }));
-    await screen.findByText('Other ready');
-    post(hostWindow, HOST_ORIGIN, { type: 'hook-invoke', id: 'unrelated-slot', hookName: 'onAction', args: [] });
-    expect(hostWindow.postMessage).toHaveBeenCalledWith({ type: 'hook-result', id: 'unrelated-slot', ok: false, error: 'no handler for onAction' }, HOST_ORIGIN);
-  });
-
   it('shows an update that arrives before the slot has subscribed to updates', async () => {
     const { SandboxRuntime } = await import('@/lib/plugin-sandbox/runtime');
     render(React.createElement(SandboxRuntime));

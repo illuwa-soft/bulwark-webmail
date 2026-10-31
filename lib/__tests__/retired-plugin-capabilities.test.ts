@@ -11,7 +11,7 @@ const plugin: InstalledPlugin = {
 };
 
 describe('retired downstream plugin capabilities', () => {
-  it.each(['ui.embeddedView', 'proxy.fileGrant', 'proxy.grantFiles', 'proxy.revokeFiles'])(
+  it.each(['ui.embeddedView', 'proxy.fileGrant', 'proxy.grantFiles', 'proxy.revokeFiles', 'ui.closeFileEditor', 'files.refresh'])(
     'rejects %s before any network request or side effect', async (method) => {
       await expect(dispatchApiCall(plugin, method, [])).rejects.toThrow(`Unknown API method "${method}"`);
     },

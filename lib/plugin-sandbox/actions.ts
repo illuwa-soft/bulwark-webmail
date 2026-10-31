@@ -6,13 +6,6 @@
 import { slotSpec } from '../plugin-slot-catalog';
 import { isAllowedPluginCombo } from './shortcuts';
 
-export interface ActionOwner {
-  container: HTMLElement;
-  slot: string | null;
-  signal: AbortSignal;
-  invokeAction?(surface: string, actionId: string, context: Record<string, unknown>): Promise<void>;
-}
-
 export interface PluginAction {
   id: string;
   label: string;
@@ -24,12 +17,8 @@ export interface PluginAction {
   mailboxRoles?: string[];
   /** Show only for attachments or files of these MIME types (prefix match, "image/"). */
   mimeTypes?: string[];
-  /** Explicit extensions for a file-open-actions provider, without the leading dot. */
-  fileExtensions?: string[];
   /** A danger action is drawn in red. */
   danger?: boolean;
-  /** A temporarily unavailable control remains visible without being actionable. */
-  disabled?: boolean;
   /**
    * A key combination for the action ("Ctrl+Shift+A"), on surfaces that bind
    * one (composer-toolbar-actions: while the composer has focus). Needs Alt,
@@ -48,9 +37,6 @@ export interface PluginAction {
 export interface RegisteredAction extends PluginAction {
   pluginId: string;
   pluginName: string;
-  /** Host-only frame identity; never accepted from action JSON. */
-  owner?: ActionOwner;
-  instanceId?: string;
 }
 
 export const MAX_ACTIONS_PER_SURFACE = 8;
@@ -97,17 +83,7 @@ export function checkActions(value: unknown): PluginAction[] {
       }
       out.mimeTypes = (a.mimeTypes as string[]).map((m) => m.toLowerCase());
     }
-    if (a.fileExtensions !== undefined) {
-      if (!Array.isArray(a.fileExtensions) || a.fileExtensions.length === 0 || a.fileExtensions.length > 20 || !a.fileExtensions.every((extension) => typeof extension === 'string' && /^[a-z0-9]{1,12}$/i.test(extension))) {
-        throw new Error(`actions[${i}].fileExtensions must name at most 20 file extensions`);
-      }
-      out.fileExtensions = a.fileExtensions.map((extension: string) => extension.toLowerCase());
-    }
     if (a.danger !== undefined) out.danger = a.danger === true;
-    if (a.disabled !== undefined) {
-      if (typeof a.disabled !== 'boolean') throw new Error(`actions[${i}].disabled must be true or false`);
-      out.disabled = a.disabled;
-    }
     if (a.checked !== undefined) {
       if (typeof a.checked !== 'boolean') throw new Error(`actions[${i}].checked must be true or false`);
       out.checked = a.checked;
@@ -130,8 +106,6 @@ export function checkActions(value: unknown): PluginAction[] {
 const registry = new Map<string, Map<string, RegisteredAction[]>>();
 const listeners = new Set<() => void>();
 const snapshots = new Map<string, RegisteredAction[]>();
-const frameActions = new Map<ActionOwner, RegisteredAction[]>();
-const observedOwners = new WeakSet<ActionOwner>();
 
 function changed(): void {
   snapshots.clear();
@@ -156,31 +130,9 @@ export function setPluginActions(pluginId: string, pluginName: string, surface: 
   changed();
 }
 
-/** Bind editor controls to their native workspace and remove only that frame's declarations on abort.
- * 편집 컨트롤을 네이티브 작업 영역에 결합하고 해제 시 해당 프레임의 선언만 제거합니다. */
-export function setFileEditorActions(pluginId: string, pluginName: string, actions: PluginAction[], owner: ActionOwner | undefined): void {
-  const instanceId = owner?.container.closest('[data-file-editor-instance]')?.getAttribute('data-file-editor-instance');
-  if (!owner || owner.slot !== 'file-editor' || owner.signal.aborted || !owner.invokeAction || !instanceId) {
-    throw new Error('File editor actions require their exact live native workspace');
-  }
-  if (!observedOwners.has(owner)) {
-    observedOwners.add(owner);
-    owner.signal.addEventListener('abort', () => {
-      if (frameActions.delete(owner)) changed();
-    }, { once: true });
-  }
-  if (actions.length === 0) frameActions.delete(owner);
-  if (actions.length > 0) frameActions.set(owner, actions.map(action => ({ ...action, pluginId, pluginName, owner, instanceId })));
-  changed();
-}
-
-/** Drop a removed plugin's global and frame declarations without touching other providers.
- * 제거된 플러그인의 전역·프레임 선언만 정리하고 다른 제공자는 유지합니다. */
+/** Drop everything a plugin declared (it was turned off or removed). */
 export function clearPluginActions(pluginId: string): void {
-  const owners = [...frameActions].filter(([, actions]) => actions.some(action => action.pluginId === pluginId)).map(([owner]) => owner);
-  for (const owner of owners) frameActions.delete(owner);
-  const removed = registry.delete(pluginId);
-  if (removed || owners.length > 0) changed();
+  if (registry.delete(pluginId)) changed();
 }
 
 /**
@@ -192,17 +144,13 @@ export function actionsFor(surface: string): RegisteredAction[] {
   if (cached) return cached;
   const out: RegisteredAction[] = [];
   for (const surfaces of registry.values()) out.push(...(surfaces.get(surface) ?? []));
-  if (surface === 'file-editor-actions') {
-    for (const actions of frameActions.values()) out.push(...actions);
-  }
   out.sort((a, b) => (a.order ?? 100) - (b.order ?? 100) || a.label.localeCompare(b.label));
   snapshots.set(surface, out);
   return out;
 }
 
 /** Whether an action applies to a folder role and/or a MIME type. */
-export function actionApplies(action: PluginAction, ctx: { mailboxRole?: string | null; mimeType?: string | null; fileName?: string | null }): boolean {
-  if (action.fileExtensions && ctx.fileName !== undefined && !action.fileExtensions.includes((ctx.fileName ?? '').split('.').at(-1)?.toLowerCase() ?? '')) return false;
+export function actionApplies(action: PluginAction, ctx: { mailboxRole?: string | null; mimeType?: string | null }): boolean {
   if (action.mailboxRoles && ctx.mailboxRole !== undefined && !action.mailboxRoles.includes(ctx.mailboxRole ?? '')) return false;
   if (action.mimeTypes && ctx.mimeType !== undefined) {
     const type = (ctx.mimeType ?? '').toLowerCase();
@@ -214,7 +162,6 @@ export function actionApplies(action: PluginAction, ctx: { mailboxRole?: string 
 /** Test helper. */
 export function resetActions(): void {
   registry.clear();
-  frameActions.clear();
   changed();
 }
 
@@ -233,15 +180,7 @@ export function setActionDispatcher(next: ActionDispatcher | null): void {
   dispatcher = next;
 }
 
-/** Run only a current enabled declaration; frame controls target their exact owning instance.
- * 현재 활성 선언만 실행하고 프레임 컨트롤은 정확한 소유 인스턴스에 전달합니다. */
 export async function runAction(action: RegisteredAction, surface: string, context: Record<string, unknown>): Promise<void> {
-  if (action.disabled) return;
-  if (action.owner) {
-    if (surface !== 'file-editor-actions' || action.owner.signal.aborted || !frameActions.get(action.owner)?.includes(action)) return;
-    await action.owner.invokeAction?.(surface, action.id, context);
-    return;
-  }
   if (!dispatcher) return;
   await dispatcher(action.pluginId, surface, action.id, context);
 }
