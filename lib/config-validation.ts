@@ -35,7 +35,6 @@ const configValidators = {
   oauthIssuerUrl: isString,
   oauthScopes: isString,
   rememberMeEnabled: isBoolean,
-  rememberAccountList: isBoolean,
   settingsSyncEnabled: isBoolean,
   stalwartFeaturesEnabled: isBoolean,
   stalwartJmapPassthroughEnabled: isBoolean,

@@ -1,8 +1,5 @@
 "use client";
 
-import { SavedAccounts } from '@/components/auth/saved-accounts';
-import { RememberAccountsControl } from '@/components/auth/remember-accounts-control';
-
 import { Suspense, useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { useParams, useSearchParams } from "next/navigation";
@@ -145,7 +142,6 @@ function LoginPageContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const isAddAccountMode = searchParams.get("mode") === "add-account";
-  const requestedServerUrl = searchParams.get("server");
 
   // When the mobile app launches the webmail in a browser tab it tacks on
   // these params. We grab them once at mount and stash them in a ref so any
@@ -313,9 +309,8 @@ function LoginPageContent() {
   useEffect(() => {
     if (!hasServerList) return;
     if (selectedServerId && jmapServers.some((s) => s.id === selectedServerId)) return;
-    const requestedServer = jmapServers.find((server) => isAddAccountMode && server.url === requestedServerUrl);
-    setSelectedServerId(requestedServer?.id ?? jmapServers[0].id);
-  }, [hasServerList, isAddAccountMode, jmapServers, requestedServerUrl, selectedServerId]);
+    setSelectedServerId(jmapServers[0].id);
+  }, [hasServerList, jmapServers, selectedServerId]);
 
   // Auto-pick by email domain. Locks the dropdown to the matched server until
   // the user clears the email or types a domain we don't recognize.
@@ -1223,8 +1218,6 @@ function LoginPageContent() {
 
           {/* Form section */}
           <div className="px-8 pb-8">
-            {!isMobileHandoff && <RememberAccountsControl />}
-            {!isAddAccountMode && !isMobileHandoff && <SavedAccounts />}
             {/* Session Expired Banner */}
             {sessionExpired && (
               <div

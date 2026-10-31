@@ -11,7 +11,6 @@ export function createConfig(overrides: Partial<ConfigData> = {}): ConfigData {
     oauthIssuerUrl: '',
     oauthScopes: '',
     rememberMeEnabled: false,
-    rememberAccountList: false,
     settingsSyncEnabled: false,
     stalwartFeaturesEnabled: true,
     stalwartJmapPassthroughEnabled: true,

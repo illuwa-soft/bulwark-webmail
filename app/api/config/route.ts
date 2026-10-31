@@ -66,7 +66,6 @@ export async function GET(request: NextRequest) {
       oauthIssuerUrl: configManager.get<string>('oauthIssuerUrl', ''),
       oauthScopes: getOauthScopes(),
       rememberMeEnabled: hasSessionSecret(),
-      rememberAccountList: configManager.get<boolean>('rememberAccountList', false),
       settingsSyncEnabled: configManager.get<boolean>('settingsSyncEnabled', false) && hasSessionSecret(),
       stalwartFeaturesEnabled,
       stalwartJmapPassthroughEnabled,
