@@ -9,8 +9,6 @@ import { resetActions, setActionDispatcher, setPluginActions } from '@/lib/plugi
 import { clearSlotOffers, framePropsOf, offerSlots } from '@/components/plugins/__tests__/fake-slot-offer';
 import type { IJMAPClient } from '@/lib/jmap/client-interface';
 import type { FileResourceView } from '@/lib/plugin-types';
-import { findFileEditor } from '@/lib/plugin-sandbox/file-editors';
-import type { ReactNode } from 'react';
 
 // Plugin surfaces in Files: entries in an item's menu and buttons in the
 // selection toolbar (file-actions), and a section in the previews and the
@@ -23,7 +21,6 @@ const device = vi.hoisted(() => ({ isMobile: false }));
 vi.mock('@/hooks/use-media-query', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/hooks/use-media-query')>()),
   useIsMobile: () => device.isMobile,
-  useIsDesktop: () => !device.isMobile,
 }));
 
 const folder = {
@@ -43,18 +40,18 @@ const notesView: FileResourceView = {
   id: 'f-notes', name: 'notes.txt', type: 'file', size: 10, mimeType: 'text/plain', path: '/', modified: '2026-10-01T00:00:00Z',
 };
 
-function renderBrowser(selected: string[] = [], edit = vi.fn(), listed: FileResource[] = [folder, notes, photo], workspace?: { id: string; fileId: string; content: ReactNode; actions: ReactNode }) {
+function renderBrowser(selected: string[] = []) {
   const client = { listAllFileNodesAcrossAccounts: vi.fn(async () => []) } as unknown as IJMAPClient;
   act(() => {
     useFileStore.setState({
-      client, resources: listed, sharedRoots: [], allFolders: [folder], allFiles: listed.filter(item => !item.isDirectory), currentParentId: null, pathStack: [{ id: null, name: '' }], hasListed: true,
+      client, sharedRoots: [], allFolders: [folder], currentParentId: null, pathStack: [{ id: null, name: '' }], hasListed: true,
     });
   });
   const noop = vi.fn(async () => {});
   render(
     <FileBrowser
       currentPath="/"
-      resources={listed}
+      resources={[folder, notes, photo]}
       isLoading={false}
       error={null}
       selectedResources={new Set(selected)}
@@ -64,8 +61,6 @@ function renderBrowser(selected: string[] = [], edit = vi.fn(), listed: FileReso
       onSetSelection={vi.fn()}
       onToggleSelect={vi.fn()}
       onPreviewFile={vi.fn()}
-      isOfficeEditable={(name) => Boolean(findFileEditor(name, false))}
-      onEditFile={edit}
       onDownload={noop}
       onCreateFolder={noop}
       onUploadFiles={noop}
@@ -96,7 +91,6 @@ function renderBrowser(selected: string[] = [], edit = vi.fn(), listed: FileReso
       onRemoveRecent={vi.fn()}
       client={client}
       ownAccountId="a"
-      workspace={workspace}
     />,
   );
 }
@@ -119,116 +113,10 @@ afterEach(() => {
   clearSlotOffers();
   resetActions();
   setActionDispatcher(null);
-  act(() => { useFileStore.setState({ client: null, sharedRoots: [], allFolders: [], allFiles: [] }); });
+  act(() => { useFileStore.setState({ client: null, sharedRoots: [], allFolders: [] }); });
 });
 
 describe('file-actions', () => {
-  it('keeps the provider canvas edge-to-edge and docks its controls in the native explorer', () => {
-    renderBrowser([], vi.fn(), [folder, notes], {
-      id: 'workspace', fileId: notes.id,
-      content: <article aria-label="Vector workspace">Drawing canvas</article>,
-      actions: <button>Provider save</button>,
-    });
-    const tree = screen.getByRole('navigation', { name: 'folders' });
-    expect(within(tree).getByRole('button', { name: notes.name })).toBeInTheDocument();
-    expect(within(tree).getByRole('button', { name: folder.name })).toBeInTheDocument();
-    expect(screen.getByRole('article', { name: 'Vector workspace' })).toBeInTheDocument();
-    const toolbar = screen.getByRole('toolbar', { name: 'toolbar' });
-    expect(within(toolbar).getByRole('button', { name: 'Provider save' })).toBeInTheDocument();
-    expect(toolbar.closest('[data-file-explorer]')).not.toBeNull();
-    expect(screen.queryByRole('navigation', { name: 'breadcrumbs' })).toBeNull();
-    expect(screen.queryByRole('searchbox')).toBeNull();
-    expect(screen.queryByRole('grid')).toBeNull();
-    expect(screen.queryByRole('dialog')).toBeNull();
-  });
-
-  it('folds and restores the explorer without remounting the workspace or replacing stored tree preferences', () => {
-    localStorage.setItem('files-sidebar-width', '288');
-    localStorage.setItem('files-sidebar-collapsed', '{"starred":true}');
-    renderBrowser([], vi.fn(), [folder, notes], {
-      id: 'workspace', fileId: notes.id,
-      content: <input aria-label="Unsubmitted drawing" defaultValue="draft" />,
-      actions: <button>Provider save</button>,
-    });
-    const drawing = screen.getByRole('textbox', { name: 'Unsubmitted drawing' });
-    fireEvent.change(drawing, { target: { value: 'unsaved drawing' } });
-    const toggle = document.querySelector('[data-file-explorer-toggle]');
-    expect(toggle).not.toBeNull();
-    fireEvent.click(toggle!);
-    expect(toggle).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryByRole('navigation', { name: 'folders' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Provider save' })).toBeVisible();
-    expect(screen.getByRole('textbox', { name: 'Unsubmitted drawing' })).toBe(drawing);
-    expect(drawing).toHaveValue('unsaved drawing');
-    expect(document.querySelector('[data-file-explorer]')).toHaveStyle({ width: '40px' });
-    expect(localStorage.getItem('files-explorer-collapsed')).toBe('1');
-    expect(localStorage.getItem('files-sidebar-collapsed')).toBe('{"starred":true}');
-    expect(localStorage.getItem('files-sidebar-width')).toBe('288');
-    fireEvent.click(toggle!);
-    expect(toggle).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('navigation', { name: 'folders' })).toBeVisible();
-    expect(document.querySelector('[data-file-explorer]')).toHaveStyle({ width: '288px' });
-    expect(screen.getByRole('textbox', { name: 'Unsubmitted drawing' })).toBe(drawing);
-  });
-
-  it('keeps a folded mobile explorer and provider controls reachable without a workspace top bar', () => {
-    device.isMobile = true;
-    renderBrowser([], vi.fn(), [folder, notes], {
-      id: 'workspace', fileId: notes.id,
-      content: <article aria-label="Reader workspace">Reader</article>,
-      actions: <button>Provider save</button>,
-    });
-    expect(screen.queryByRole('navigation', { name: 'breadcrumbs' })).toBeNull();
-    expect(screen.queryByRole('navigation', { name: 'folders' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Provider save' })).toBeVisible();
-    const canvas = screen.getByRole('article', { name: 'Reader workspace' });
-    const toggle = document.querySelector('[data-file-explorer-toggle]');
-    expect(toggle).not.toBeNull();
-    fireEvent.click(toggle!);
-    expect(screen.getByRole('navigation', { name: 'folders' })).toBeVisible();
-    expect(screen.getByRole('article', { name: 'Reader workspace' })).toBe(canvas);
-    fireEvent.click(toggle!);
-    expect(screen.queryByRole('navigation', { name: 'folders' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Provider save' })).toBeVisible();
-  });
-  it('routes a file context-menu editor choice to the selected provider rather than its background hook', async () => {
-    setPluginActions('office', 'Office', 'file-open-actions', [{ id: 'open', label: 'Open in Office', fileExtensions: ['txt'] }]);
-    setPluginActions('other', 'Other', 'file-open-actions', [{ id: 'open', label: 'Open in Other', fileExtensions: ['txt'] }]);
-    const edit = vi.fn();
-    renderBrowser([], edit);
-    fireEvent.contextMenu(rowOf('notes.txt'));
-    await act(async () => { fireEvent.click(await screen.findByRole('menuitem', { name: 'Open in Other' })); });
-    expect(edit).toHaveBeenCalledWith('notes.txt', 'other');
-    expect(dispatch).not.toHaveBeenCalled();
-  });
-
-  it('uses the native row double-click path for registered Office documents and PDF, not AI', () => {
-    setPluginActions('office', 'Office', 'file-open-actions', [{ id: 'open', label: 'Office', fileExtensions: ['xlsx', 'docx', 'pptx', 'pdf'] }]);
-    const edit = vi.fn();
-    const files = ['budget.xlsx', 'slides.pptx', 'document.docx', 'paper.pdf', 'drawing.ai'].map((name, index) => ({ ...notes, id: `f-${index}`, name, serverName: name, contentType: 'application/octet-stream' }));
-    renderBrowser([], edit, files);
-
-    for (const name of ['budget.xlsx', 'slides.pptx', 'document.docx', 'paper.pdf']) fireEvent.doubleClick(rowOf(name));
-
-    expect(edit.mock.calls.map(([name]) => name)).toEqual(['budget.xlsx', 'slides.pptx', 'document.docx', 'paper.pdf']);
-    fireEvent.doubleClick(rowOf('drawing.ai'));
-    expect(edit).toHaveBeenCalledTimes(4);
-  });
-
-  it('offers file creators in the existing right-click menu with the captured account and folder', async () => {
-    act(() => setPluginActions('office', 'Office', 'file-create-actions', [
-      { id: 'xlsx', label: '새 Excel 스프레드시트' },
-      { id: 'pptx', label: '새 PowerPoint 프레젠테이션' },
-      { id: 'docx', label: '새 Word 문서' },
-      { id: 'pdf', label: '새 PDF' },
-    ]));
-    renderBrowser();
-    fireEvent.contextMenu(screen.getByRole('grid', { name: 'file_list' }));
-    const create = await screen.findByRole('menuitem', { name: '새 Excel 스프레드시트' });
-    await act(async () => { fireEvent.click(create); });
-    expect(dispatch).toHaveBeenCalledWith('office', 'file-create-actions', 'xlsx', { parentId: null, accountId: 'a', path: '/' });
-  });
-
   it('adds entries to an item menu, filtered by its type, and sends the item', async () => {
     act(() => setPluginActions('ocr', 'OCR', 'file-actions', [
       { id: 'read-text', label: 'Read text', mimeTypes: ['text/'] },
