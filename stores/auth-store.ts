@@ -45,7 +45,6 @@ import {
   saveLiteRefreshToken,
 } from '@/lib/auth/lite-tokens';
 import { clearLiteOAuthFlow, readLiteOAuthFlow } from '@/lib/auth/lite-oauth';
-import { disposeEmbeddedViews, leaveEmbeddedViews, embeddedViewsActive } from '@/lib/plugin-embedded/requests';
 
 /** Logins restored at once after the one on screen: enough to overlap round trips, few enough not to crowd the server. */
 const RESTORE_CONCURRENCY = 4;
@@ -2181,8 +2180,6 @@ export const useAuthStore = create<AuthState>()(
       },
 
        logout: async (options) => {
-        if (options?.endProviderSession === false) disposeEmbeddedViews();
-        else if (embeddedViewsActive() && !(await leaveEmbeddedViews('logout'))) return;
         const state = get();
         const wasDemoMode = state.isDemoMode;
         const wasOAuth = state.authMode === 'oauth';
@@ -2395,7 +2392,6 @@ export const useAuthStore = create<AuthState>()(
       switchAccount: async (accountId: string) => {
         const state = get();
         if (state.activeAccountId === accountId) return;
-        if (embeddedViewsActive() && !(await leaveEmbeddedViews('account-switch'))) return;
         const generation = ++switchGeneration;
         const superseded = () => generation !== switchGeneration;
 

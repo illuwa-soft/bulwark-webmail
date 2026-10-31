@@ -24,7 +24,6 @@ import {
 import { sanitizeSkinCSS, sanitizeThemeCSS } from './theme-loader';
 import { compileAdvancedTheme, isAdvancedManifest } from './theme-compiler';
 import { sanitizeApiPostPaths, sanitizeFrameOrigins, sanitizeHttpOrigins } from './extension-origins';
-import { sanitizeFramePaths } from './plugin-embedded/contracts';
 
 export const EXTENSION_ID_RE = /^[a-z0-9][a-z0-9-]*[a-z0-9]$/;
 
@@ -373,7 +372,7 @@ function validateLocales(raw: unknown, errors: string[]): Record<string, Record<
 
 function originList(
   m: Record<string, unknown>,
-  key: 'frameOrigins' | 'framePaths' | 'httpOrigins' | 'apiPostPaths',
+  key: 'frameOrigins' | 'httpOrigins' | 'apiPostPaths',
   sanitize: (v: unknown) => string[],
   errors: string[],
   warnings: string[],
@@ -455,7 +454,7 @@ export function checkPluginManifest(m: Record<string, unknown>, opts: { appVersi
   const configSchema = validateConfigSchema(m.configSchema, errors);
   const locales = validateLocales(m.locales, errors);
   const frameOrigins = originList(m, 'frameOrigins', sanitizeFrameOrigins, errors, warnings);
-  const framePaths = originList(m, 'framePaths', sanitizeFramePaths, errors, warnings);
+  if (m.framePaths !== undefined) errors.push('Host-owned external views are not supported');
   const httpOrigins = originList(m, 'httpOrigins', sanitizeHttpOrigins, errors, warnings);
   const apiPostPaths = originList(m, 'apiPostPaths', sanitizeApiPostPaths, errors, warnings);
   const credentialCheck = checkCredentials(m.credentials, configSchema);
@@ -471,7 +470,6 @@ export function checkPluginManifest(m: Record<string, unknown>, opts: { appVersi
     ...(configSchema && Object.keys(configSchema).length ? { configSchema } : {}),
     ...(locales && Object.keys(locales).length ? { locales } : {}),
     ...(frameOrigins ? { frameOrigins } : {}),
-    ...(framePaths ? { framePaths } : {}),
     ...(httpOrigins ? { httpOrigins } : {}),
     ...(apiPostPaths ? { apiPostPaths } : {}),
     ...(credentialCheck.credentials && Object.keys(credentialCheck.credentials).length ? { credentials: credentialCheck.credentials } : {}),

@@ -1,10 +1,4 @@
 {
-  "plugin_file_grants": {
-    "until_revoked": "indtil du tilbagekalder tilladelsen (uden udløb)",
-    "title": "Læs filer i baggrunden",
-    "message": "{plugin} · {account} → {origin}\n\nSkrivebeskyttet adgang til:\n{paths}\n\nFortsætter efter vinduet lukkes. Udløber: {expires}. Du kan tilbagekalde adgangen. Den oprindelige kontos loginoplysninger bliver på denne vært.",
-    "allow": "Tillad læsning"
-  },
   "meta_description": "Minimalistisk webmail-klient, der bruger JMAP-protokollen",
   "login": {
     "title": "Webmail",
@@ -4418,7 +4412,6 @@
         "title": "Tilføje sider",
         "body": "Tilføje sine egne sider til appen, hver med en knap på navigationslinjen."
       },
-      "ui_embedded_view": { "title": "Open external views inside the app", "body": "Display approved external pages inside {appName}, exchange messages and wait for the plugin before leaving. External pages remain separate from your mail session.", "force_close": "Close this view without waiting? Its work may not be saved.", "close_failed": "The plugin did not finish closing. You can keep working or close the view without waiting." },
       "http_proxy": {
         "title": "Bruge konti, du forbinder",
         "body": "Sende forespørgsler via {appName}s server med en konto eller nøgle, som du eller din administrator har sat op. Pluginnet ser aldrig adgangskoden, men det kan gøre alt, hvad kontoen kan gøre på sin egen server."

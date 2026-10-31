@@ -215,7 +215,6 @@ async function loadDevPlugin(pluginDir: string): Promise<DevPluginEntry | null> 
     ...(valid.settingsSchema ? { settingsSchema: valid.settingsSchema } : {}),
     ...(valid.locales ? { locales: valid.locales } : {}),
     ...(valid.frameOrigins ? { frameOrigins: valid.frameOrigins } : {}),
-    ...(valid.framePaths ? { framePaths: valid.framePaths } : {}),
     ...(valid.httpOrigins ? { httpOrigins: valid.httpOrigins } : {}),
     ...(valid.credentials ? { credentials: valid.credentials } : {}),
     ...(valid.apiPostPaths ? { apiPostPaths: valid.apiPostPaths } : {}),

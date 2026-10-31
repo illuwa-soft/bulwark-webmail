@@ -1,10 +1,4 @@
 {
-  "plugin_file_grants": {
-    "until_revoked": "до відкликання дозволу (без строку дії)",
-    "title": "Читання файлів у фоновому режимі",
-    "message": "{plugin} · {account} → {origin}\n\nДоступ лише для читання:\n{paths}\n\nПрацює після закриття вікна. Термін дії: {expires}. Доступ можна відкликати. Облікові дані початкового облікового запису залишаються на цьому сервері.",
-    "allow": "Дозволити читання"
-  },
   "meta_description": "Мінімалістичний вебклієнт електронної пошти, що використовує протокол JMAP",
   "login": {
     "title": "Веб-пошта",
@@ -4418,7 +4412,6 @@
         "title": "Додавати сторінки",
         "body": "Додавати до програми власні сторінки, кожну з кнопкою на панелі навігації."
       },
-      "ui_embedded_view": { "title": "Open external views inside the app", "body": "Display approved external pages inside {appName}, exchange messages and wait for the plugin before leaving. External pages remain separate from your mail session.", "force_close": "Close this view without waiting? Its work may not be saved.", "close_failed": "The plugin did not finish closing. You can keep working or close the view without waiting." },
       "http_proxy": {
         "title": "Використовувати підключені вами облікові записи",
         "body": "Надсилати запити через сервер {appName} з обліковим записом або ключем, який налаштували ви або ваш адміністратор. Плагін ніколи не бачить пароль, але може робити на цьому сервері все, що може цей обліковий запис."

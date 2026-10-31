@@ -37,12 +37,11 @@ import { isFillableSlot, isInlineSlot, MAX_INLINE_SLOT_WIDTH } from './slot-layo
 import type {
   AppInfoView, AppSettingsView, SettingsSearchResult, CalendarEventInput, CalendarEventView, CalendarView, ComposeInput, DraftInput, EmailReadView,
   EmailSummary, IdentityPatch, IdentityView, MailboxView, NotificationInput, SlotName, TaskInput,
-  TaskView, TemplateInput, TemplateView, VacationInput, VacationView, ComposerSnapshot, ComposerAttachmentData, PluginFileGrant,
+  TaskView, TemplateInput, TemplateView, VacationInput, VacationView, ComposerSnapshot, ComposerAttachmentData,
 } from '../plugin-types';
 import { AddressBook, ContactCard } from '../jmap/types';
 import { EncryptionAtRestConfig, PublicKeyInput } from '@/stores/account-security-store';
 import type { EmailQueryOptions, EmailQueryPage, CalendarQueryOptions, CalendarQueryPage, ContactQueryOptions, ContactQueryPage, FileQueryOptions, FileQueryPage, FileText } from '../plugin-read-types';
-import type { EmbeddedViewCommand } from '../plugin-embedded/contracts';
 
 // ─── Module-scope state ──────────────────────────────────────
 
@@ -477,8 +476,6 @@ function buildPluginApi(manifest: PluginManifest) {
       ) => callApi('jmap.importRaw', [rawBytes, mailboxRoles, opts]),
     },
     files: {
-      /** Refreshes the native Files view without navigating or changing its selected folder. */
-      refresh: () => callApi('files.refresh', []) as Promise<void>,
       query: (options?: FileQueryOptions) => callApi('files.query', [options]) as Promise<FileQueryPage>,
       readText: (id: string, options?: { maxBytes?: number }) => callApi('files.readText', [id, options], NETWORK_API_TIMEOUT_MS) as Promise<FileText>,
       /** Read at most 25 MiB from an owning FileNode (files:read), without a URL, token or blob id. */
@@ -570,8 +567,6 @@ function buildPluginApi(manifest: PluginManifest) {
       warning: (m: string) => { void callApi('toast.warning', [m]); },
     },
     ui: {
-      /** A page-scoped external view. The plugin owns its protocol and leave acknowledgement. */
-      embeddedView: (command: EmbeddedViewCommand) => callApi('ui.embeddedView', [command]),
       /** Opens a host-rendered confirm dialog. Resolves to true on confirm, false otherwise.
        *  No timeout - it waits for the user's choice. */
       confirm: (opts: { title?: string; message?: string; confirmLabel?: string; cancelLabel?: string; danger?: boolean }) =>
@@ -617,7 +612,7 @@ function buildPluginApi(manifest: PluginManifest) {
        * palette, ...). Replaces what this plugin set there before; [] removes
        * them. Clicks arrive in the `onAction({ surface, actionId, context })` hook.
        */
-      setActions: (surface: string, actions: Array<{ id: string; label: string; icon?: string; order?: number; mailboxRoles?: string[]; mimeTypes?: string[]; fileExtensions?: string[]; danger?: boolean; disabled?: boolean }>) =>
+      setActions: (surface: string, actions: Array<{ id: string; label: string; icon?: string; order?: number; mailboxRoles?: string[]; mimeTypes?: string[]; danger?: boolean }>) =>
         callApi('ui.setActions', [surface, actions]) as Promise<void>,
       /**
        * Ask every visible message row for its onEmailListItemRender badges
@@ -630,8 +625,6 @@ function buildPluginApi(manifest: PluginManifest) {
       /** Full pages with a button in the navigation bar; the `app-page` slot renders them. */
       setPages: (pages: Array<{ id: string; title: string; icon?: string }>) =>
         callApi('ui.setPages', [pages]) as Promise<void>,
-      /** Finishes this provider's current Files editor through the host leave guard. */
-      closeFileEditor: () => callApi('ui.closeFileEditor', [], 0) as Promise<boolean>,
       /**
        * The header of this plugin's sidebar section (the host draws it like
        * Folders and Tags), e.g. a translated "Upcoming birthdays". null goes
@@ -665,12 +658,6 @@ function buildPluginApi(manifest: PluginManifest) {
        */
       accounts: () => callApi('proxy.accounts', []) as Promise<Array<{ credentialId: string; scope: 'user' | 'admin'; origin?: string; username?: string; connected: boolean }>>,
       disconnect: (credentialId: string) => callApi('proxy.disconnect', [credentialId]) as Promise<boolean>,
-      /** Inspect a read grant without exposing its token. */
-      fileGrant: (credentialId: string) => callApi('proxy.fileGrant', [credentialId]) as Promise<PluginFileGrant>,
-      /** Ask host consent for scoped background reads: defaults to seven days; explicit null lasts until revoked.
-       * 범위 기반 백그라운드 읽기를 승인받으며 기본 7일·명시적 null은 철회할 때까지입니다. */
-      grantFiles: (credentialId: string, options: { paths: string[]; expiresIn?: number | null }) => callApi('proxy.grantFiles', [credentialId, options], 0) as Promise<PluginFileGrant>,
-      revokeFiles: (credentialId: string) => callApi('proxy.revokeFiles', [credentialId]) as Promise<boolean>,
     },
     // Reading mail (permission: email:read) and keyword mutations
     // (permission: email:write). Keywords follow JMAP syntax, e.g.
@@ -1122,14 +1109,6 @@ function bootSlot(payload: SlotInit): void {
   const rootEl = document.getElementById('plugin-sandbox-root');
   if (!rootEl) throw new Error('Sandbox root element missing');
 
-  // File editor controls invoke this frame's hook, never the background's activation or hooks.
-  // 파일 편집 컨트롤은 백그라운드 활성화·훅 대신 현재 프레임의 훅만 호출합니다.
-  const slotHooks: string[] = [];
-  if (payload.slot === 'file-editor' && typeof exports.hooks?.onAction === 'function') {
-    hookHandlers.onAction = exports.hooks.onAction;
-    slotHooks.push('onAction');
-  }
-
   let currentProps = decodeCallbacks(payload.extraProps) as Record<string, unknown>;
   const Component = slotDef.component;
   const inline = isInlineSlot(payload.slot);
@@ -1205,7 +1184,7 @@ function bootSlot(payload: SlotInit): void {
 
   const reactRoot = ReactDOM.createRoot(rootEl);
   reactRoot.render(React.createElement(SlotShell));
-  sendToHost({ type: 'init-done', hooks: slotHooks, slots: [], shortcuts: [] });
+  sendToHost({ type: 'init-done', hooks: [], slots: [], shortcuts: [] });
 }
 
 // Populated by bootSlot - receives `props-update` messages.

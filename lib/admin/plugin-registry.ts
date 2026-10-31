@@ -91,7 +91,6 @@ export interface ServerPlugin {
    * embed. Merged into the host frame-src by the proxy.
    */
   frameOrigins?: string[];
-  framePaths?: string[];
   /**
    * Validated HTTPS origins the plugin may target via `api.http.fetch()`.
    * Same syntax as `frameOrigins`. Surfaced to clients via /api/plugins.

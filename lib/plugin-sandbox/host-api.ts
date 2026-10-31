@@ -7,8 +7,8 @@ import { fetchConfig } from '@/hooks/use-config';
 import { IS_LITE } from '../lite';
 import { doAppGetSettings, doAppSearchSettings } from './host-api-app';
 import { mayOfferSlot, pluginHasPermission } from './permissions';
-import { proxyAccounts, proxyCancel, proxyConnect, proxyDisconnect, proxyFetch, proxyFileGrant, proxyGrantFiles, proxyRevokeFiles, type StreamSink } from './proxy-client';
-import { checkActions, isActionSurface, setPluginActions, setFileEditorActions } from './actions';
+import { proxyAccounts, proxyCancel, proxyConnect, proxyDisconnect, proxyFetch, type StreamSink } from './proxy-client';
+import { checkActions, isActionSurface, setPluginActions } from './actions';
 import { checkDayLabels, setDayLabels } from './day-labels';
 import { refreshRowBadges } from './row-badges';
 import { checkPages, setPluginPages } from './pages';
@@ -64,10 +64,6 @@ import { requestPanel } from './panel-requests';
 import { doComposerAttach, doComposerGetBody, doComposerGetSelection, doComposerGetSnapshot, doComposerReadAttachment, doComposerReplaceBody, doComposerReplaceSelection } from './host-api-composer';
 import { doReadPage, doFilesReadText } from './host-api-read-pages';
 import { doPersistentStorage, type PersistentStorageOwner } from './host-api-persistent-storage';
-import { readEmbeddedCommand, type EmbeddedViewOwner } from '../plugin-embedded/contracts';
-import { requestEmbeddedView } from '../plugin-embedded/requests';
-import { closeFileEditor } from '@/lib/plugin-sandbox/file-editors';
-import { useFileStore } from '@/stores/file-store';
 
 /**
  * Methods only callable from the privileged (same-origin) tier. These expose
@@ -112,7 +108,6 @@ export const PERM_PER_METHOD: Readonly<Record<string, Permission | null>> = {
   'email.getPrimary': 'email:read',
   'email.update': 'email:write',
   'files.get': 'files:read',
-  'files.refresh': 'files:read',
   'email.query': 'email:read',
   'calendar.queryEvents': 'calendar:read',
   'contact.query': 'contacts:read',
@@ -249,9 +244,6 @@ export const PERM_PER_METHOD: Readonly<Record<string, Permission | null>> = {
   'proxy.connect': 'http:proxy',
   'proxy.accounts': 'http:proxy',
   'proxy.disconnect': 'http:proxy',
-  'proxy.fileGrant': 'http:proxy',
-  'proxy.grantFiles': 'http:proxy',
-  'proxy.revokeFiles': 'http:proxy',
   // Buttons and menu entries drawn by the host; the surface's own
   // permission is checked per call (see the slot catalogue).
   'ui.setActions': null,
@@ -259,8 +251,6 @@ export const PERM_PER_METHOD: Readonly<Record<string, Permission | null>> = {
   'ui.refreshRowBadges': null,
   'ui.setDayLabels': 'ui:calendar-action',
   'ui.setPages': 'ui:app-page',
-  'ui.embeddedView': 'ui:embedded-view',
-  'ui.closeFileEditor': 'ui:files',
   'ui.setSectionTitle': 'ui:sidebar-widget',
   // Open, close or toggle the panel the plugin's slot sits in; the panel's
   // own permission is checked per call (see the slot catalogue).
@@ -1856,7 +1846,7 @@ export async function dispatchApiCall(
   plugin: InstalledPlugin,
   method: string,
   args: unknown[],
-  opts?: { privileged?: boolean; sink?: StreamSink; embeddedOwner?: EmbeddedViewOwner; persistentOwner?: PersistentStorageOwner; toastSignal?: AbortSignal },
+  opts?: { privileged?: boolean; sink?: StreamSink; persistentOwner?: PersistentStorageOwner; toastSignal?: AbortSignal },
 ): Promise<unknown> {
   // Tier gate: privileged-only methods are refused for untrusted (null-origin)
   // instances even if the permission is somehow present. Defence-in-depth on
@@ -1876,23 +1866,6 @@ export async function dispatchApiCall(
   }
 
   switch (method) {
-    case 'ui.embeddedView': {
-      if (IS_LITE) throw new Error('Embedded views require the full app');
-      const canUsePage = pluginHasPermission(plugin, 'ui:app-page');
-      const canUseFiles = pluginHasPermission(plugin, 'ui:files');
-      if (!canUsePage && !canUseFiles) throw new Error('Embedded view surface permission is required');
-      const scope = opts?.embeddedOwner;
-      if (!scope || !['app-page', 'file-editor'].includes(scope.slot ?? '') || scope.signal.aborted) throw new Error('Embedded views require a live app-page or file-editor instance');
-      if (scope.slot === 'app-page' && !canUsePage) throw new Error('Embedded app-page permission is required');
-      if (scope.slot === 'file-editor' && !canUseFiles) throw new Error('Embedded file-editor permission is required');
-      return requestEmbeddedView(plugin.id, scope, readEmbeddedCommand(args[0]), {
-        hostOrigin: window.location.origin,
-        frameOrigins: plugin.frameOrigins ?? [],
-        framePaths: plugin.framePaths ?? [],
-      });
-    }
-    case 'ui.closeFileEditor': return closeFileEditor(plugin.id, opts?.embeddedOwner);
-    case 'files.refresh': return useFileStore.getState().refresh();
     case 'email.query':
     case 'calendar.queryEvents':
     case 'contact.query':
@@ -1915,20 +1888,12 @@ export async function dispatchApiCall(
     case 'proxy.connect': return proxyConnect(plugin, args);
     case 'proxy.accounts': return proxyAccounts(plugin);
     case 'proxy.disconnect': return proxyDisconnect(plugin, args);
-    case 'proxy.fileGrant': return proxyFileGrant(plugin, args);
-    case 'proxy.grantFiles': return proxyGrantFiles(plugin, args);
-    case 'proxy.revokeFiles': return proxyRevokeFiles(plugin, args);
 
     case 'ui.setActions': {
       const surface = args[0];
       if (typeof surface !== 'string' || !isActionSurface(surface)) throw new Error(`"${String(surface)}" is not a surface that takes actions`);
       if (!mayOfferSlot(plugin, surface)) throw new Error(`Plugin "${plugin.id}" may not add actions to "${surface}"`);
       const actions = checkActions(args[1]);
-      if (surface === 'file-open-actions' && actions.some((action) => !action.fileExtensions?.length)) throw new Error('File editors require explicit fileExtensions');
-      if (surface === 'file-editor-actions') {
-        setFileEditorActions(plugin.id, plugin.name, actions, opts?.embeddedOwner);
-        return undefined;
-      }
       setPluginActions(plugin.id, plugin.name, surface, actions);
       return undefined;
     }
