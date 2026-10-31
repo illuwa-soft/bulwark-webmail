@@ -961,7 +961,7 @@ function ContactsAppContent({ linkSegments: routeSegments }: ContactsAppProps = 
 
       <div className="flex flex-col flex-1 min-w-0 min-h-0">
         {inlineApp && (
-          <InlineAppView apps={loadedApps} activeAppId={inlineApp!.id} onClose={closeInlineApp} />
+          <InlineAppView apps={loadedApps} activeAppId={inlineApp!.id} />
         )}
         <div className={cn("relative flex flex-1 min-h-0", inlineApp && "hidden")}>
           {/* Narrow-pane backdrop for the overlay categories sidebar */}

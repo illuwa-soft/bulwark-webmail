@@ -1782,7 +1782,7 @@ export function CalendarApp({ linkSegments: routeSegments }: CalendarAppProps = 
       )}
 
       {inlineApp && (
-        <InlineAppView apps={loadedApps} activeAppId={inlineApp!.id} onClose={closeInlineApp} className="flex-1" />
+        <InlineAppView apps={loadedApps} activeAppId={inlineApp!.id} className="flex-1" />
       )}
 
       {/* Narrow-pane backdrop: dim and close overlay sidebar */}
