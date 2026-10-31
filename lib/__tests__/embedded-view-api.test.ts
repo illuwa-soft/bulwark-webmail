@@ -53,8 +53,12 @@ describe('embedded view host authority', () => {
     const embeddedOwner = { slot: 'file-editor', signal: new AbortController().signal, container: root };
     expect(await dispatchApiCall(provider, 'ui.embeddedView', [command], { embeddedOwner })).toMatchObject({ id: expect.any(String) });
     await expect(dispatchApiCall(provider, 'ui.embeddedView', [command], { embeddedOwner: { ...embeddedOwner, slot: 'app-page' } })).rejects.toThrow(/permission/);
-    await expect(dispatchApiCall(provider, 'ui.closeFileEditor', [], { embeddedOwner: { ...embeddedOwner, slot: 'background' } })).rejects.toThrow(/live file-editor/);
-    await expect(dispatchApiCall(plugin({ permissions: [], grantedPermissions: [] }), 'files.refresh', [])).rejects.toThrow(/files:read/);
+  });
+
+  it.each(['ui.closeFileEditor', 'files.refresh'])('rejects retired native Files RPC %s regardless of permissions', async (method) => {
+    await expect(dispatchApiCall(plugin({ permissions: [], grantedPermissions: [] }), method, [])).rejects.toThrow(/Unknown API method/);
+    const filePermissions = ['ui:files', 'files:read'];
+    await expect(dispatchApiCall(plugin({ permissions: filePermissions, grantedPermissions: filePermissions }), method, [])).rejects.toThrow(/Unknown API method/);
   });
 
   it('requires both consent grants and a bridge-owned app-page instance, without an HTTP grant', async () => {
