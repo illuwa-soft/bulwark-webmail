@@ -174,7 +174,7 @@ describe('server configuration recovery', () => {
     expect(second.result.current).toMatchObject({ isLoading: true, error: null });
     first.unmount();
     await act(() => vi.advanceTimersByTimeAsync(1));
-    expect(second.result.current).toEqual({ ...config, isLoading: false, error: null });
+    expect(second.result.current).toEqual({ ...config, euroOfficeConfigured: false, isLoading: false, error: null });
     expect(mocks.apiFetch).toHaveBeenCalledTimes(2);
   });
 
