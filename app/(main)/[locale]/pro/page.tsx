@@ -530,7 +530,6 @@ export default function ProHome() {
             <InlineAppView
               apps={loadedApps}
               activeAppId={inlineApp.id}
-              onClose={closeInlineApp}
               className="flex-1"
             />
           )}

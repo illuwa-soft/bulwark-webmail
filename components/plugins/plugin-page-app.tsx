@@ -151,7 +151,7 @@ export function PluginPageApp({ linkSegments = [] }: PluginPageAppProps) {
           </div>
         )}
         <div className="flex flex-col flex-1 min-w-0">
-          {inlineApp && <InlineAppView apps={loadedApps} activeAppId={inlineApp.id} onClose={closeInlineApp} />}
+          {inlineApp && <InlineAppView apps={loadedApps} activeAppId={inlineApp.id} />}
           <div className={cn("flex flex-col flex-1 min-h-0", inlineApp && "hidden")}>
             {IS_LITE ? content : <EmbeddedWorkspace pluginId={pluginId}>{content}</EmbeddedWorkspace>}
           </div>
