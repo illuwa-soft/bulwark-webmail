@@ -6,6 +6,9 @@ import type { InlineAppState } from '@/hooks/use-sidebar-apps';
 type InlineAppViewProps = {
   apps: InlineAppState[];
   activeAppId: string;
+  /** Official release callers retain their host navigation callback; the rail owns invoking it.
+   * 공식 릴리스 호출자의 호스트 탐색 콜백을 유지하고 실행은 탐색 레일이 소유합니다. */
+  onClose?: () => void;
   className?: string;
 };
 
