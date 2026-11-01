@@ -1,12 +1,11 @@
 'use client';
-import { IS_LITE } from '@/lib/lite';
 
 type OfficeFrame = { window: Window; ready: boolean };
 const frames = new Set<OfficeFrame>();
 const pending = new Map<string, { frame: OfficeFrame; resolve(value: boolean): void }>();
 
 export function isOfficeView(url: string) {
-  if (IS_LITE) return false;
+  if (process.env.NEXT_PUBLIC_BULWARK_LITE === '1') return false;
   try {
     const target = new URL(url, location.origin);
     return target.origin === location.origin && /\/api\/eurooffice\/view\/\d+\/[A-Za-z0-9_-]{43}(?:\/|$)/.test(target.pathname);
