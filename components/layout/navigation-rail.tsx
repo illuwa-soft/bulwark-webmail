@@ -31,6 +31,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { toUnicodeEmail } from "@/lib/idn";
 import { usePluginPages, pluginPageHref, isPluginPageActive } from "@/hooks/use-plugin-pages";
 import { NotificationBell } from "@/components/notifications/notification-center";
+import { officeViewsActive, leaveOfficeViews } from '@/lib/eurooffice/lifecycle';
 
 interface NavItem {
   id: string;
@@ -333,8 +334,37 @@ export function NavigationRail({
     return pathname.startsWith(href);
   };
 
+  /** Guard every owned route, including plugin/admin links, without affecting new-tab clicks.
+   * 새 탭 클릭을 유지하며 플러그인·관리자 링크를 포함한 소유 경로의 종료를 확인합니다. */
+  const confirmOfficeNavigation = (event: React.MouseEvent, navigate: () => void) => {
+    if (!officeViewsActive() || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return false;
+    event.preventDefault();
+    const account = useAuthStore.getState().activeAccountId;
+    void leaveOfficeViews('navigation').then((confirmed) => {
+      if (confirmed && account === useAuthStore.getState().activeAccountId) navigate();
+    });
+    return true;
+  };
+
+  const handlePageClick = (href: string) => (event: React.MouseEvent) => {
+    if (confirmOfficeNavigation(event, () => { onCloseInlineApp?.(); router.push(href); })) return;
+    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
+    if (activeAppId) onCloseInlineApp?.();
+  };
+
+  const handleAdminClick = (event: React.MouseEvent) => {
+    confirmOfficeNavigation(event, () => { window.location.assign(`${getPathPrefix()}/admin`); });
+  };
+
   const handleNavClick = (itemId: 'mail' | 'calendar' | 'contacts' | 'files' | 'settings') =>
     (e: React.MouseEvent) => {
+      if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.button !== 0) return;
+      if (confirmOfficeNavigation(e, () => {
+        if (onNavigate && onNavigate(itemId) !== false) return;
+        onCloseInlineApp?.();
+        const paths = { mail: '/', calendar: '/calendar', contacts: '/contacts', files: '/files', settings: '/settings' };
+        router.push(paths[itemId]);
+      })) return;
       if (onNavigate) {
         const intercepted = onNavigate(itemId);
         if (intercepted !== false) {
@@ -403,7 +433,7 @@ export function NavigationRail({
             <Link
               key={`plugin-page:${page.pluginId}:${page.id}`}
               href={pluginPageHref(page)}
-              onClick={() => { if (activeAppId) onCloseInlineApp?.(); }}
+              onClick={handlePageClick(pluginPageHref(page))}
               data-plugin-page-link={`${page.pluginId}/${page.id}`}
               title={page.pluginName}
               className={cn(
@@ -468,6 +498,7 @@ export function NavigationRail({
         {(isStalwartAdmin || adminActive) && (
           <a
             href={`${getPathPrefix()}/admin`}
+            onClick={handleAdminClick}
             className={cn(
               "flex flex-col items-center justify-center gap-1 py-2 px-1 min-h-[44px] grow shrink-0 basis-[64px]",
               "transition-colors duration-150",
@@ -613,7 +644,7 @@ export function NavigationRail({
             <Link
               key={`plugin-page:${page.pluginId}:${page.id}`}
               href={pluginPageHref(page)}
-              onClick={() => { if (activeAppId) onCloseInlineApp?.(); }}
+              onClick={handlePageClick(pluginPageHref(page))}
               data-plugin-page-link={`${page.pluginId}/${page.id}`}
               className={cn(
                 "relative flex items-center gap-2.5 rounded-md transition-colors duration-150",
@@ -708,6 +739,7 @@ export function NavigationRail({
         {(isStalwartAdmin || adminActive) && (
           <a
             href={`${getPathPrefix()}/admin`}
+            onClick={handleAdminClick}
             className={cn(
               "flex items-center justify-center w-10 h-10 rounded-md transition-colors relative",
               adminActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted",
@@ -820,7 +852,9 @@ export function NavigationRail({
             })}
             {accounts.length < getMaxAccounts() && (
               <button
-                onClick={() => router.push(`/login?mode=add-account` as never)}
+                onClick={(event) => {
+                  if (!confirmOfficeNavigation(event, () => router.push('/login?mode=add-account'))) router.push('/login?mode=add-account');
+                }}
                 className="flex items-center justify-center w-8 h-8 rounded-full border border-dashed border-muted-foreground/50 text-muted-foreground hover:border-foreground hover:text-foreground hover:bg-muted transition-colors flex-shrink-0"
                 title={t("add_account")}
                 aria-label={t("add_account")}

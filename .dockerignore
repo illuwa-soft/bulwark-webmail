@@ -1,5 +1,6 @@
 node_modules
 .next
+.octocode
 out
 lite-image
 .git

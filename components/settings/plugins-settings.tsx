@@ -16,6 +16,7 @@ import type { InstalledPlugin, PluginStatus, SettingFieldSchema } from '@/lib/pl
 import { effectiveSettings } from '@/lib/plugin-settings';
 import { lookup } from '@/lib/plugin-sandbox/plugin-i18n';
 import { forgetCredentials, listConnectedAccounts, type ConnectedAccount } from '@/lib/plugin-sandbox/connect-dialog';
+import { EuroOfficeSettings } from './eurooffice-settings';
 
 const STATUS_COLORS: Record<PluginStatus, string> = {
   installed: 'bg-muted text-muted-foreground',
@@ -116,6 +117,7 @@ export function PluginsSettings() {
       title={t('title')}
       description={demoMode ? t('description_demo') : uploadsAllowed ? t('description_uploads') : t('description')}
     >
+      <EuroOfficeSettings />
       {uploadsAllowed && (
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">

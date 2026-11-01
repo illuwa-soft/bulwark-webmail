@@ -2,6 +2,7 @@
 
 import { cn } from '@/lib/utils';
 import type { InlineAppState } from '@/hooks/use-sidebar-apps';
+import { InlineAppFrame } from './inline-app-frame';
 
 type InlineAppViewProps = {
   apps: InlineAppState[];
@@ -20,17 +21,10 @@ export function InlineAppView({ apps, activeAppId, className }: InlineAppViewPro
       {/* Iframes - active one visible, rest hidden but alive */}
       <div className="flex-1 min-h-0 relative">
         {apps.map((app) => (
-          <iframe
+          <InlineAppFrame
             key={app.id}
-            src={app.url}
-            title={app.name}
-            className={cn(
-              'absolute inset-0 w-full h-full border-0',
-              app.id !== activeAppId && 'hidden'
-            )}
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
-            referrerPolicy="no-referrer"
-            loading="lazy"
+            app={app}
+            active={app.id === activeAppId}
           />
         ))}
       </div>
