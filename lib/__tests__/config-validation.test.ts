@@ -10,6 +10,11 @@ const server = {
 };
 
 describe('server configuration validation', () => {
+  it('accepts an absent optional Office capability but refuses a non-boolean claim', () => {
+    expect(isConfigData({ ...createConfig(), euroOfficeConfigured: undefined })).toBe(true);
+    expect(isConfigData({ ...createConfig(), euroOfficeConfigured: true })).toBe(true);
+    expect(isConfigData({ ...createConfig(), euroOfficeConfigured: 'true' })).toBe(false);
+  });
   it('accepts a complete response without changing its values', () => {
     const config = createConfig();
     const before = structuredClone(config);

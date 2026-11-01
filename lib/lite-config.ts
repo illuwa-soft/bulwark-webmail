@@ -14,6 +14,7 @@ export const LITE_FORCED_FLAGS = {
   oauthOnly: false,
   autoSsoEnabled: false,
   settingsSyncEnabled: false,
+  euroOfficeConfigured: false,
   stalwartFeaturesEnabled: false,
   stalwartJmapPassthroughEnabled: false,
   devMode: false,

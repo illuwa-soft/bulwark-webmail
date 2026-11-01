@@ -84,6 +84,9 @@ try {
     await delay(500);
   }
   assert(available, 'Next production server must become ready');
+  const publicConfig = await (await fetch(`${hostOrigin}/api/config`)).json();
+  assert.equal(publicConfig.euroOfficeConfigured, true);
+  assert.equal(JSON.stringify(publicConfig).includes(officeOrigin), false, 'Expose capability only, not the server-only gateway URL');
   const tokenA = cookie('member@example.test', fixture.native.base, 'user-a');
   const tokenB = cookie('other@example.test', fixture.native.base, 'user-b');
   const cookies = `jmap_stalwart_ctx=${tokenA}; jmap_stalwart_ctx_1=${tokenB}; office_workspace_session=stale-account-a`;

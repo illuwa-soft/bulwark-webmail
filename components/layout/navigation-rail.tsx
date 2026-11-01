@@ -31,7 +31,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { toUnicodeEmail } from "@/lib/idn";
 import { usePluginPages, pluginPageHref, isPluginPageActive } from "@/hooks/use-plugin-pages";
 import { NotificationBell } from "@/components/notifications/notification-center";
-import { officeViewsActive, leaveOfficeViews } from '@/lib/eurooffice/lifecycle';
+import { confirmOfficeNavigation } from '@/lib/eurooffice/navigation';
 
 interface NavItem {
   id: string;
@@ -216,7 +216,7 @@ export function NavigationRail({
   const tGlobalSearch = useTranslations("global_search");
   const pathname = usePathname();
   const router = useRouter();
-  const { appLogoLightUrl, appLogoDarkUrl } = useConfig();
+  const { appLogoLightUrl, appLogoDarkUrl, euroOfficeConfigured } = useConfig();
   const resolvedTheme = useThemeStore((s) => s.resolvedTheme);
   const { supportsCalendar } = useCalendarStore(useShallow((state) => ({ supportsCalendar: state.supportsCalendar })));
   const { mailboxes } = useEmailStore(useShallow((state) => ({ mailboxes: state.mailboxes })));
@@ -231,7 +231,7 @@ export function NavigationRail({
   const calendarEnabled = usePolicyStore((s) => s.isFeatureEnabled('calendarEnabled'));
   // Operator-provided apps (#931) plus the user's own; the gate above only
   // removes the user's, so a pinned set still shows when custom apps are off.
-  const visibleSidebarApps = useResolvedSidebarApps();
+  const visibleSidebarApps = useResolvedSidebarApps(euroOfficeConfigured);
   // Pages plugins added (api.ui.setPages); listed after the built-in apps.
   const pluginPages = usePluginPages();
   const inboxUnread = mailboxes.find(m => m.role === "inbox")?.unreadEmails || 0;
@@ -332,18 +332,6 @@ export function NavigationRail({
       return pathname === "/" || pathname === "" || (mountainView && pathname.startsWith("/mail"));
     }
     return pathname.startsWith(href);
-  };
-
-  /** Guard every owned route, including plugin/admin links, without affecting new-tab clicks.
-   * 새 탭 클릭을 유지하며 플러그인·관리자 링크를 포함한 소유 경로의 종료를 확인합니다. */
-  const confirmOfficeNavigation = (event: React.MouseEvent, navigate: () => void) => {
-    if (!officeViewsActive() || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return false;
-    event.preventDefault();
-    const account = useAuthStore.getState().activeAccountId;
-    void leaveOfficeViews('navigation').then((confirmed) => {
-      if (confirmed && account === useAuthStore.getState().activeAccountId) navigate();
-    });
-    return true;
   };
 
   const handlePageClick = (href: string) => (event: React.MouseEvent) => {

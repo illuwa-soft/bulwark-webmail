@@ -4,17 +4,17 @@ import { useAuthStore } from '@/stores/auth-store';
 import { useAccountStore } from '@/stores/account-store';
 import { officeInformation, officeQueries } from '@/lib/eurooffice/client';
 import { officeAccount } from '@/lib/eurooffice/account';
+import { IS_LITE } from '@/lib/lite';
 
 /** Keep each account/slot in its own server-state query, never in plugin-global browser storage.
  * 플러그인 공통 저장소 대신 계정·슬롯별 서버 상태 Query를 사용합니다. */
-export function useEuroOffice() {
+export function useEuroOffice(configured = false) {
   const accountId = useAuthStore((state) => state.activeAccountId);
   const authenticated = useAuthStore((state) => state.isAuthenticated);
   const client = useAuthStore((state) => state.client);
-  const account = useAccountStore((state) => state.accounts.find((entry) => entry.id === accountId));
-  const slot = account?.cookieSlot;
+  const slot = useAccountStore((state) => state.accounts.find((entry) => entry.id === accountId)?.cookieSlot);
   const context = officeAccount(client, accountId, slot);
-  const ready = authenticated && context !== null;
+  const ready = !IS_LITE && configured && authenticated && context !== null;
   const queryKey = ['eurooffice', accountId, slot, context?.subject, context?.origin] as const;
   const query = useQuery({
     queryKey,

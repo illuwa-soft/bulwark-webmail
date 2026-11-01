@@ -1,10 +1,11 @@
 import { beforeEach, afterEach, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, waitFor, cleanup } from '@testing-library/react';
+import { act, fireEvent, render, renderHook, screen, waitFor, cleanup } from '@testing-library/react';
 import type { InstalledPlugin } from '@/lib/plugin-types';
 import type { AccountEntry } from '@/stores/account-store';
 
 vi.mock('next-intl', () => ({ useTranslations: () => (key: string, values?: { name?: string }) => `${key} ${values?.name ?? ''}`.trim(), useLocale: () => 'ko' }));
-vi.mock('@/hooks/use-config', () => ({ useConfig: () => ({ demoMode: false }) }));
+const capability = vi.hoisted(() => ({ configured: true }));
+vi.mock('@/hooks/use-config', () => ({ useConfig: () => ({ demoMode: false, euroOfficeConfigured: capability.configured }) }));
 vi.mock('@/stores/auth-store', async () => {
   const { create } = await import('zustand');
   return { useAuthStore: create(() => ({ activeAccountId: null, client: null, isAuthenticated: false })) };
@@ -22,6 +23,7 @@ import { useAccountStore } from '@/stores/account-store';
 import { JMAPClient } from '@/lib/jmap/client';
 import { officeQueries } from '@/lib/eurooffice/client';
 import { registerOfficeFrame } from '@/lib/eurooffice/lifecycle';
+import { useEuroOffice } from '@/hooks/use-eurooffice';
 
 const enabled = [true, false];
 let administrators = false;
@@ -46,6 +48,7 @@ function select(id: string, subject: string) {
 }
 
 beforeEach(() => {
+  capability.configured = true;
   enabled[0] = true; enabled[1] = false; administrators = false;
   officeQueries.clear();
   useAccountStore.setState({ accounts: [account('a', 0), account('b', 1)] });
@@ -68,6 +71,23 @@ beforeEach(() => {
   });
 });
 afterEach(() => { cleanup(); officeQueries.clear(); vi.restoreAllMocks(); });
+
+it('does not probe Office when this host has not enabled the optional connector', async () => {
+  capability.configured = false;
+  render(<PluginsSettings />);
+  expect(await screen.findByRole('switch', { name: '이 계정에서 EuroOffice 사용' })).toBeDisabled();
+  await act(async () => { await Promise.resolve(); });
+  expect(transport).not.toHaveBeenCalled();
+});
+
+it('does not rerender the sidebar observer for unrelated account metadata', () => {
+  let renders = 0;
+  renderHook(() => { renders++; return useEuroOffice(false); });
+  const before = renders;
+  act(() => useAccountStore.setState((state) => ({ accounts: state.accounts.map((entry) => ({ ...entry, lastLoginAt: entry.lastLoginAt + 1 })) })));
+  expect(renders).toBe(before);
+  expect(transport).not.toHaveBeenCalled();
+});
 
 it('keeps the actual Agent toggle independent of the server-owned Office switch', async () => {
   render(<PluginsSettings />);

@@ -3,6 +3,7 @@ import { QueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { apiFetch, withBasePath } from '@/lib/browser-navigation';
 import type { OfficeAccount } from './account';
+import { IS_LITE } from '@/lib/lite';
 
 const information = z.object({
   ownerId: z.string().regex(/^[A-Za-z0-9_-]{43}$/), username: z.string(), enabled: z.boolean(), workspaceId: z.string().nullable(),
@@ -21,6 +22,7 @@ export const officeQueries = new QueryClient({ defaultOptions: { queries: { retr
 /** Centralize slot-pinned transport; secrets exist only in the explicit request body.
  * 슬롯에 고정한 전송을 모으고 비밀값은 명시적인 요청 본문에만 둡니다. */
 export async function officeInformation(account: OfficeAccount, change?: OfficeChange, expectedOwner?: string, signal?: AbortSignal) {
+  if (IS_LITE) throw new Error('EuroOffice account connections require the full app');
   const headers = new Headers({ 'X-JMAP-Cookie-Slot': String(account.slot), 'X-Office-Expected-Subject': encodeURIComponent(account.subject), 'X-Office-Expected-Origin': account.origin });
   if (expectedOwner) headers.set('X-Office-Account', expectedOwner);
   let method = 'GET';
@@ -41,5 +43,6 @@ export async function officeInformation(account: OfficeAccount, change?: OfficeC
 }
 
 export function officeViewUrl(slot: number, ownerId: string) {
+  if (IS_LITE) return '';
   return new URL(withBasePath(`/api/eurooffice/view/${slot}/${encodeURIComponent(ownerId)}/`), location.origin).href;
 }

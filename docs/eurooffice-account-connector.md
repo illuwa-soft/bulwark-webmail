@@ -4,6 +4,8 @@ The optional connector adds an account-specific EuroOffice card to the app setti
 
 Set `EUROOFFICE_GATEWAY_URL` on the webmail server to the gateway's HTTPS origin, without a path or credentials. Enable the installation's general add-ons feature gate. Configure the gateway's `STALWART_ORIGIN`, `EMBED_ORIGINS` and `INSTALLATION_ADMIN_USERS` for this host. The gateway's [installation and connector contract](https://github.com/illuwa-soft/euro-office-stalwart-gateway/blob/main/docs/host-connector.md) owns its schema and migration.
 
+The public config exposes only the `euroOfficeConfigured` capability. Hosts without the setting do not make Office requests. Lite static exports omit this server-backed connector and pin its capability off. Account observers subscribe to the cookie-slot scalar, so unrelated mail/account metadata does not rerender Office navigation.
+
 ## Identity and lifecycle
 
 - Settings use the authenticated JMAP `Session.username`, server origin and explicit cookie slot. The server selects only that slot and forwards its trusted Native credential. Owner IDs and expected subjects reject mismatches; they do not authenticate a caller.

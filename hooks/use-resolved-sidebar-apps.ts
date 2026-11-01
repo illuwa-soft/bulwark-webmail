@@ -20,11 +20,11 @@ export function useManagedSidebarApps(): AdminSidebarApp[] {
  * `sidebarAppsEnabled` gates only the user's custom apps, so turning it off
  * still leaves the operator's set in place.
  */
-export function useResolvedSidebarApps(): ResolvedSidebarApp[] {
+export function useResolvedSidebarApps(euroOfficeConfigured = false): ResolvedSidebarApp[] {
   const userApps = useSettingsStore((s) => s.sidebarApps);
   const defaults = usePolicyStore((s) => s.policy.defaultSidebarApps);
   const userAppsEnabled = usePolicyStore((s) => s.isFeatureEnabled('sidebarAppsEnabled'));
-  const office = useEuroOffice();
+  const office = useEuroOffice(euroOfficeConfigured);
   return useMemo(
     () => {
       const apps = mergeSidebarApps(defaults, userAppsEnabled ? userApps : []).filter((app) => app.id !== 'admin-app-eurooffice-workspace');

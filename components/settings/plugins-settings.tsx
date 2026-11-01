@@ -17,6 +17,7 @@ import { effectiveSettings } from '@/lib/plugin-settings';
 import { lookup } from '@/lib/plugin-sandbox/plugin-i18n';
 import { forgetCredentials, listConnectedAccounts, type ConnectedAccount } from '@/lib/plugin-sandbox/connect-dialog';
 import { EuroOfficeSettings } from './eurooffice-settings';
+import { IS_LITE } from '@/lib/lite';
 
 const STATUS_COLORS: Record<PluginStatus, string> = {
   installed: 'bg-muted text-muted-foreground',
@@ -33,7 +34,7 @@ export function PluginsSettings() {
   const t = useTranslations('plugins.settings');
   const { plugins, installPlugin, uninstallPlugin, enablePlugin, disablePlugin, updatePluginSettings, initializePlugins, initialized } = usePluginStore();
   const { isFeatureEnabled, isPluginForceEnabled, fetchPolicy, loaded } = usePolicyStore();
-  const { demoMode } = useConfig();
+  const { demoMode, euroOfficeConfigured } = useConfig();
   const [expandedPlugin, setExpandedPlugin] = useState<string | null>(null);
   const [installing, setInstalling] = useState(false);
   const [installError, setInstallError] = useState<string | null>(null);
@@ -117,7 +118,7 @@ export function PluginsSettings() {
       title={t('title')}
       description={demoMode ? t('description_demo') : uploadsAllowed ? t('description_uploads') : t('description')}
     >
-      <EuroOfficeSettings />
+      {!IS_LITE && <EuroOfficeSettings configured={euroOfficeConfigured === true} />}
       {uploadsAllowed && (
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">

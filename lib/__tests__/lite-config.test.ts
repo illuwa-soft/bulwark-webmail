@@ -44,6 +44,7 @@ describe('applyLiteConfig (config.json for the static build)', () => {
       oauthOnly: true,
       autoSsoEnabled: true,
       settingsSyncEnabled: true,
+      euroOfficeConfigured: true,
       stalwartFeaturesEnabled: true,
       stalwartJmapPassthroughEnabled: true,
       devMode: true,

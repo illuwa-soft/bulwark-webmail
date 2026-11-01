@@ -67,6 +67,7 @@ export async function GET(request: NextRequest) {
       oauthScopes: getOauthScopes(),
       rememberMeEnabled: hasSessionSecret(),
       settingsSyncEnabled: configManager.get<boolean>('settingsSyncEnabled', false) && hasSessionSecret(),
+      euroOfficeConfigured: Boolean(process.env.EUROOFFICE_GATEWAY_URL),
       stalwartFeaturesEnabled,
       stalwartJmapPassthroughEnabled,
       devMode: configManager.get<boolean>('devMode', false),
