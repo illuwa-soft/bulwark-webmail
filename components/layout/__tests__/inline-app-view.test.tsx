@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { InlineAppView } from '@/components/layout/inline-app-view';
 
 const apps = [
@@ -8,6 +8,13 @@ const apps = [
 ];
 
 describe('inline app native chrome', () => {
+  it('accepts the unmodified official Files caller without adding chrome or invoking navigation', () => {
+    const onClose = vi.fn();
+    render(<InlineAppView apps={apps} activeAppId="office" onClose={onClose} />);
+    expect(screen.queryByRole('button', { name: 'Close' })).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it('gives the embedded app the full content surface without a duplicate title/close row', () => {
     const { container } = render(<InlineAppView apps={apps} activeAppId="office" />);
     expect(screen.queryByRole('heading', { name: 'EuroOffice' })).toBeNull();

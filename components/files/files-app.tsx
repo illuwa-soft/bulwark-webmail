@@ -630,7 +630,7 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
 
       <div className="flex flex-col flex-1 min-w-0">
         {inlineApp && (
-          <InlineAppView apps={loadedApps} activeAppId={inlineApp!.id} />
+          <InlineAppView apps={loadedApps} activeAppId={inlineApp!.id} onClose={closeInlineApp} />
         )}
         <div className={cn("flex flex-1 min-h-0", inlineApp && "hidden")}>
           <div className="flex-1 min-w-0 flex flex-col">
