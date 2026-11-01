@@ -18,6 +18,7 @@ export interface ConfigData {
   oauthScopes: string;
   rememberMeEnabled: boolean;
   settingsSyncEnabled: boolean;
+  euroOfficeConfigured?: boolean;
   stalwartFeaturesEnabled: boolean;
   stalwartJmapPassthroughEnabled: boolean;
   devMode: boolean;
@@ -153,6 +154,7 @@ export function useConfig(): AppConfig {
     oauthScopes: configCache?.oauthScopes || '',
     rememberMeEnabled: configCache?.rememberMeEnabled || false,
     settingsSyncEnabled: configCache?.settingsSyncEnabled || false,
+    euroOfficeConfigured: configCache?.euroOfficeConfigured === true,
     stalwartFeaturesEnabled: configCache?.stalwartFeaturesEnabled ?? true,
     stalwartJmapPassthroughEnabled: configCache?.stalwartJmapPassthroughEnabled ?? true,
     devMode: configCache?.devMode || false,
@@ -198,6 +200,7 @@ export function useConfig(): AppConfig {
         oauthScopes: configCache.oauthScopes,
         rememberMeEnabled: configCache.rememberMeEnabled,
         settingsSyncEnabled: configCache.settingsSyncEnabled,
+        euroOfficeConfigured: configCache.euroOfficeConfigured === true,
         stalwartFeaturesEnabled: configCache.stalwartFeaturesEnabled,
         stalwartJmapPassthroughEnabled: configCache.stalwartJmapPassthroughEnabled,
         devMode: configCache.devMode,
@@ -244,6 +247,7 @@ export function useConfig(): AppConfig {
           oauthScopes: data.oauthScopes,
           rememberMeEnabled: data.rememberMeEnabled,
           settingsSyncEnabled: data.settingsSyncEnabled,
+          euroOfficeConfigured: data.euroOfficeConfigured === true,
           stalwartFeaturesEnabled: data.stalwartFeaturesEnabled,
           stalwartJmapPassthroughEnabled: data.stalwartJmapPassthroughEnabled,
           devMode: data.devMode,

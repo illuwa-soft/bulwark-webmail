@@ -17,7 +17,7 @@ import {
 } from "@/components/icons";
 import type { AppIcon as AppIconType } from "@/components/icons";
 import { useTranslations } from "next-intl";
-import { Link, usePathname } from "@/i18n/navigation";
+import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import { useAuthStore } from "@/stores/auth-store";
 import { useShallow } from "zustand/react/shallow";
 import { useCalendarStore } from "@/stores/calendar-store";
@@ -37,6 +37,7 @@ import { PluginActions } from "@/components/plugins/plugin-actions";
 import { usePluginPages, pluginPageHref, isPluginPageActive } from "@/hooks/use-plugin-pages";
 import { NotificationBell } from "@/components/notifications/notification-center";
 import type { ContactSuggestion } from "@/lib/search-suggestions";
+import { confirmOfficeNavigation } from '@/lib/eurooffice/navigation';
 
 /** The top bar is not about any one item: plugin clicks carry no context. */
 const TOP_BAR_CONTEXT: Record<string, unknown> = {};
@@ -103,7 +104,8 @@ export function MvTopBar({
   const t = useTranslations("sidebar");
   const tSearch = useTranslations("advanced_search");
   const pathname = usePathname();
-  const { appName, appLogoLightUrl, appLogoDarkUrl } = useConfig();
+  const router = useRouter();
+  const { appName, appLogoLightUrl, appLogoDarkUrl, euroOfficeConfigured } = useConfig();
   const resolvedTheme = useThemeStore((s) => s.resolvedTheme);
   const toggleSidebarCollapsed = useUIStore((s) => s.toggleSidebarCollapsed);
 
@@ -114,7 +116,7 @@ export function MvTopBar({
   const filesEnabled = usePolicyStore((s) => s.isFeatureEnabled("filesEnabled"));
   // The same gate the navigation rail puts on its "add app" button.
   const sidebarAppsEnabled = usePolicyStore((s) => s.isFeatureEnabled("sidebarAppsEnabled"));
-  const sidebarApps = useResolvedSidebarApps();
+  const sidebarApps = useResolvedSidebarApps(euroOfficeConfigured);
   const pluginPages = usePluginPages();
   const isStalwartAdmin = useStalwartAdmin();
   const hasUpdate = useUpdateStore(selectHasUpdate);
@@ -168,6 +170,16 @@ export function MvTopBar({
     resolvedTheme === "dark" ? appLogoDarkUrl || appLogoLightUrl : appLogoLightUrl || appLogoDarkUrl
   );
 
+  const protectRoute = (href: string) => (event: React.MouseEvent) => {
+    confirmOfficeNavigation(event, () => { onCloseInlineApp?.(); setAppsOpen(false); router.push(href); });
+  };
+  const handleAppRoute = (href: string) => (event: React.MouseEvent) => {
+    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
+    if (confirmOfficeNavigation(event, () => { onCloseInlineApp?.(); setAppsOpen(false); router.push(href); })) return;
+    if (activeAppId) onCloseInlineApp?.();
+    setAppsOpen(false);
+  };
+
   return (
     <header
       className="mv-topbar flex items-center h-16 gap-2 ps-1 pe-4 shrink-0 bg-[var(--mv-canvas)]"
@@ -185,7 +197,7 @@ export function MvTopBar({
             <Menu className="w-5 h-5" />
           </button>
         )}
-        <Link href="/" className="flex items-center gap-2 pe-4 min-w-0" aria-label={appName}>
+        <Link href="/" onClick={protectRoute('/')} className="flex items-center gap-2 pe-4 min-w-0" aria-label={appName}>
           {logoUrl ? <img src={logoUrl} alt="" className="w-8 h-8 object-contain" /> : null}
           <span className="text-[22px] leading-none text-foreground/80 truncate">{appName}</span>
         </Link>
@@ -263,6 +275,7 @@ export function MvTopBar({
         {isStalwartAdmin && (
           <a
             href={`${getPathPrefix()}/admin`}
+            onClick={(event) => { confirmOfficeNavigation(event, () => window.location.assign(`${getPathPrefix()}/admin`)); }}
             className="relative grid place-items-center w-12 h-12 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
             title={t("admin")}
             aria-label={t("admin")}
@@ -281,6 +294,7 @@ export function MvTopBar({
         )}
         <Link
           href="/settings"
+          onClick={protectRoute('/settings')}
           className="grid place-items-center w-12 h-12 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           title={t("settings")}
           aria-label={t("settings")}
@@ -322,10 +336,7 @@ export function MvTopBar({
                       key={app.id}
                       href={app.href}
                       role="menuitem"
-                      onClick={() => {
-                        if (activeAppId) onCloseInlineApp?.();
-                        setAppsOpen(false);
-                      }}
+                      onClick={handleAppRoute(app.href)}
                       className={cn(
                         "flex flex-col items-center gap-1.5 rounded-lg py-3 px-1 text-center transition-colors hover:bg-muted",
                         isActive(app.href) && "bg-muted"
@@ -345,10 +356,7 @@ export function MvTopBar({
                       role="menuitem"
                       title={page.pluginName}
                       data-plugin-page-link={`${page.pluginId}/${page.id}`}
-                      onClick={() => {
-                        if (activeAppId) onCloseInlineApp?.();
-                        setAppsOpen(false);
-                      }}
+                      onClick={handleAppRoute(pluginPageHref(page))}
                       className={cn(
                         "flex flex-col items-center gap-1.5 rounded-lg py-3 px-1 text-center transition-colors hover:bg-muted",
                         !activeAppId && isPluginPageActive(pathname, page) && "bg-muted"

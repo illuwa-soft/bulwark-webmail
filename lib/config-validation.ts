@@ -36,6 +36,7 @@ const configValidators = {
   oauthScopes: isString,
   rememberMeEnabled: isBoolean,
   settingsSyncEnabled: isBoolean,
+  euroOfficeConfigured: (value: unknown): value is boolean | undefined => value === undefined || typeof value === 'boolean',
   stalwartFeaturesEnabled: isBoolean,
   stalwartJmapPassthroughEnabled: isBoolean,
   devMode: isBoolean,

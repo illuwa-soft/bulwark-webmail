@@ -44,6 +44,7 @@
     "@noble/curves": "^2.4.0",
     "@noble/hashes": "^2.4.0",
     "@tabler/icons-react": "^3.47.0",
+    "@tanstack/react-query": "5.104.5",
     "@tanstack/react-virtual": "^3.13.24",
     "@tiptap/extension-color": "^3.31.3",
     "@tiptap/extension-heading": "^3.31.3",
@@ -77,6 +78,7 @@
     "sharp": "^0.35.4",
     "tailwind-merge": "^3.4.0",
     "undici": "^7.29.1",
+    "zod": "4.6.7",
     "zustand": "^5.0.12"
   },
   "devDependencies": {

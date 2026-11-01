@@ -4,6 +4,8 @@ import { useManagedSidebarApps } from '@/hooks/use-resolved-sidebar-apps';
 import { appUrlToFrameOrigin, inlineAppFrameOrigins } from '@/lib/security/app-frame-origins';
 import { readAppFrameOrigins, writeAppFrameOrigins } from '@/lib/security/app-frame-origins-client';
 import { sidebarAppHooks } from '@/lib/plugin-hooks';
+import { useAuthStore } from '@/stores/auth-store';
+import { isOfficeView, officeViewsActive, leaveOfficeViews } from '@/lib/eurooffice/lifecycle';
 
 export interface InlineAppState {
   id: string;
@@ -38,6 +40,17 @@ export function useSidebarApps() {
   const keepAppsLoaded = useSettingsStore((s) => s.keepAppsLoaded);
   const sidebarApps = useSettingsStore((s) => s.sidebarApps);
   const managedApps = useManagedSidebarApps();
+  const accountId = useAuthStore((state) => state.activeAccountId);
+  const previousAccount = useRef(accountId);
+  useEffect(() => {
+    if (previousAccount.current === accountId) return;
+    previousAccount.current = accountId;
+    setLoadedApps((apps) => apps.filter((app) => !isOfficeView(app.url)));
+    setInlineApp((app) => {
+      if (app && isOfficeView(app.url)) return null;
+      return app;
+    });
+  }, [accountId]);
 
   // The `frame-src` origins this document's CSP was built from. The header is
   // fixed for the life of the document, so this snapshot - taken before we
@@ -84,7 +97,10 @@ export function useSidebarApps() {
     setShowAppsModal(true);
   }, []);
 
-  const handleInlineApp = useCallback((appId: string, url: string, name: string) => {
+  const handleInlineApp = useCallback(async (appId: string, url: string, name: string) => {
+    const openingAccount = useAuthStore.getState().activeAccountId;
+    if (officeViewsActive() && !(await leaveOfficeViews('navigation'))) return;
+    if (openingAccount !== useAuthStore.getState().activeAccountId) return;
     const app = { id: appId, url, name };
     const origin = appUrlToFrameOrigin(url);
     const applied = [...(appliedOriginsRef.current ?? readAppFrameOrigins()), ...managedOrigins];
@@ -93,7 +109,7 @@ export function useSidebarApps() {
     // document's frame-src, so the iframe would be blocked. Publish it and
     // reload to pick up a CSP that allows it. If the cookie can't be written
     // we fall through and open anyway rather than reload forever.
-    if (origin && !applied.includes(origin)) {
+    if (origin && origin !== window.location.origin && !applied.includes(origin)) {
       const origins = inlineAppFrameOrigins(sidebarApps);
       if (!origins.includes(origin)) origins.push(origin);
       if (writeAppFrameOrigins(origins)) {
@@ -110,7 +126,8 @@ export function useSidebarApps() {
     openInlineApp(app);
   }, [sidebarApps, managedOrigins, openInlineApp]);
 
-  const closeInlineApp = useCallback(() => {
+  const closeInlineApp = useCallback(async () => {
+    if (officeViewsActive() && !(await leaveOfficeViews('navigation'))) return;
     if (!keepAppsLoaded) {
       setLoadedApps((prev) => prev.filter((a) => a.id !== inlineApp?.id));
     }

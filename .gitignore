@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+/.octocode/
 
 # next.js
 /.next/

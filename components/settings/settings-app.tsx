@@ -262,7 +262,7 @@ export function SettingsApp({ linkSegments: routeSegments }: SettingsAppProps = 
   const mvShell = useMountainViewShell(isEmbedded);
   const [initialCheckDone, setInitialCheckDone] = useState(() => useAuthStore.getState().isAuthenticated && !!useAuthStore.getState().client);
   const { quota, isPushConnected } = useEmailStore();
-  const { stalwartFeaturesEnabled, appName: configAppName } = useConfig();
+  const { stalwartFeaturesEnabled, appName: configAppName, euroOfficeConfigured } = useConfig();
   const appName = productName(configAppName);
   const { isFeatureEnabled } = usePolicyStore();
   const archiveActionEnabled = isFeatureEnabled('archiveActionEnabled');
@@ -326,7 +326,7 @@ export function SettingsApp({ linkSegments: routeSegments }: SettingsAppProps = 
   const installedPlugins = usePluginStore((s) => s.plugins);
   const installedThemes = useThemeStore((s) => s.installedThemes);
   // Admin-pinned apps are searchable too - users can't add them, but they're listed.
-  const sidebarAppsList = useResolvedSidebarApps();
+  const sidebarAppsList = useResolvedSidebarApps(euroOfficeConfigured);
   const proInterface = useSettingsStore((s) => s.proInterface);
 
   // When set, the settings panel is scoped to a shared/group account: a reduced
