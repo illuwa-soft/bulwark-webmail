@@ -14,6 +14,14 @@ The public config exposes only the `euroOfficeConfigured` capability. Hosts with
 - Account switching, logout, disabling Office, and owned navigation wait for the exact frame's confirmed close. A refused close or timeout retains the document. Late mutations recheck the current account after the wait. Forced authentication revocation does not wait for the renderer.
 - Resolved apps omit the old `admin-app-eurooffice-workspace` bookmark. The connector does not activate the separate 0.8.0 plugin. Native Files source and the standard inline sandbox remain the selected upstream versions.
 
+## Stable Office entry
+
+`/apps/euro-office` is the webmail-owned Office permalink. Direct visits and reloads use the normal webmail authentication guard and its return-after-login path. The Office rail entry opens this route in desktop, mobile, and Mountain View layouts.
+
+The public path contains no account or session identifier. After authentication, the page resolves the active Native account and its explicit cookie slot, then mounts the same account-bound `/api/eurooffice/view/{slot}/{owner}/` frame. Changing accounts removes the old frame while the page checks the next account. A disabled account gets a settings link; visiting the permalink never enables Office or grants file access.
+
+The route uses the existing signed-in shell and exact-frame final-close boundary. It does not require a plugin page registration, alter Native Files, or change the standalone gateway origin. Lite and unconfigured hosts show an unavailable/setup message without mounting an Office frame. Browser/tab closure does not wait for the asynchronous final-save acknowledgement.
+
 ## Verification
 
 ```sh

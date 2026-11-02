@@ -120,6 +120,13 @@ try {
   assert.equal((await fetch(view(1, accounts[0].ownerId), { headers: { Cookie: cookies } })).status, 409);
   assert.equal((await proxy(1, '/api/v1/eurooffice/workspace/file/file-a')).status, 404);
   browser = await chromium.launch({ executablePath: process.env.CHROME_EXECUTABLE ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: true });
+  const guest = await browser.newContext({ ignoreHTTPSErrors: true });
+  const entry = await guest.newPage();
+  await entry.goto(hostOrigin + '/apps/euro-office');
+  await expect(entry).toHaveURL(/\/login(?:\?|$)/);
+  assert((await entry.evaluate(() => sessionStorage.getItem('redirect_after_login')))?.endsWith('/apps/euro-office'), 'Login must retain the Office permalink');
+  await expect(entry.locator('iframe[title="EuroOffice"]')).toHaveCount(0);
+  await guest.close();
   const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1280, height: 900 } });
   await context.addCookies([{ name: 'jmap_stalwart_ctx', value: tokenA, url: hostOrigin, httpOnly: true }, { name: 'jmap_stalwart_ctx_1', value: tokenB, url: hostOrigin, httpOnly: true }, { name: 'office_workspace_session', value: 'stale-account-a', url: hostOrigin, httpOnly: true }]);
   page = await context.newPage();
@@ -138,7 +145,7 @@ try {
   assert.equal((await proxy(1, '/api/v1/eurooffice/workspace/file/file-a')).status, 403);
   assert.equal((await (await settings(0)).json()).enabled, true);
   assert.deepEqual(failures, []);
-  const receipt = { realNextProductionRoutes: true, realCookieDecryption: true, realWorkerAndD1: true, nativeAndParentShell: 'controlled fixtures', scopedMonacoBrowser: true, commonAdministratorSettings: true, independentAccounts: true, wrongSubjectDenied: true, forgedOwnerDenied: true, crossAccountFileDenied: true, range206: true, staleOfficeCookieIgnored: true, perAccountRevocation: true, errors: failures };
+  const receipt = { realNextProductionRoutes: true, officePermalinkLoginGuard: true, officePermalinkReturnTargetRetained: true, realCookieDecryption: true, realWorkerAndD1: true, nativeAndParentShell: 'controlled fixtures', scopedMonacoBrowser: true, commonAdministratorSettings: true, independentAccounts: true, wrongSubjectDenied: true, forgedOwnerDenied: true, crossAccountFileDenied: true, range206: true, staleOfficeCookieIgnored: true, perAccountRevocation: true, errors: failures };
   await writeFile(join(out, 'receipt.json'), JSON.stringify(receipt, null, 2) + '\n');
   console.log(JSON.stringify(receipt, null, 2));
 } catch (error) {

@@ -32,6 +32,8 @@ import { toUnicodeEmail } from "@/lib/idn";
 import { usePluginPages, pluginPageHref, isPluginPageActive } from "@/hooks/use-plugin-pages";
 import { NotificationBell } from "@/components/notifications/notification-center";
 import { confirmOfficeNavigation } from '@/lib/eurooffice/navigation';
+import { OFFICE_PAGE_PATH } from '@/lib/eurooffice/page-path';
+import { isOfficeView } from '@/lib/eurooffice/lifecycle';
 
 interface NavItem {
   id: string;
@@ -450,7 +452,7 @@ export function NavigationRail({
         {/* Custom sidebar apps (per-app mobile visibility) */}
         {visibleSidebarApps.filter((app) => app.showOnMobile).map((app) => {
           const AppIcon = iconForName(app.icon);
-          const isActive = activeAppId === app.id;
+          const isActive = activeAppId === app.id || (!activeAppId && pathname === OFFICE_PAGE_PATH && isOfficeView(app.url));
           return (
             <button
               key={app.id}
@@ -667,7 +669,7 @@ export function NavigationRail({
         )}
         {visibleSidebarApps.map((app) => {
           const AppIcon = iconForName(app.icon);
-          const isActive = activeAppId === app.id;
+          const isActive = activeAppId === app.id || (!activeAppId && pathname === OFFICE_PAGE_PATH && isOfficeView(app.url));
           return (
             <button
               key={app.id}
