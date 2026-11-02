@@ -13,7 +13,7 @@ import { usePolicyStore } from "@/stores/policy-store";
 import { useShallow } from "zustand/react/shallow";
 import { useConfig } from "@/hooks/use-config";
 import { useMenuNavigation } from "@/hooks/use-menu-navigation";
-import { apiFetch, getPathPrefix, toRouterPath, withBasePath } from "@/lib/browser-navigation";
+import { apiFetch, getPathPrefix, withBasePath } from "@/lib/browser-navigation";
 import { cn } from "@/lib/utils";
 import { AlertCircle, Loader2, X, Info, Eye, EyeOff, LogIn, Sun, Moon, Monitor, Check, Shield, Play, Copy, KeyRound } from "@/components/icons";
 import { type OAuthMetadata } from "@/lib/oauth/discovery";
@@ -34,6 +34,7 @@ import { toAsciiDomain } from "@/lib/idn";
 import { usePrefetchMailView } from "@/hooks/use-prefetch-mail-view";
 import { buildMobileHandoffUrl, mobileHandoffTarget, signedInLoginAction } from "@/lib/auth/mobile-handoff";
 import { MobileHandoffConsent } from "@/components/auth/mobile-handoff-consent";
+import { useLoginReturn } from '@/hooks/use-login-return';
 
 /** The domain of a complete address (`user@example.com`), or '' while it is still being typed. */
 function completeAddressDomain(username: string): string {
@@ -156,6 +157,7 @@ function LoginPageContent() {
   const [pendingHandoff, setPendingHandoff] = useState<{ url: string; username: string } | null>(null);
   usePrefetchMailView(!isMobileHandoff);
   const { login, loginWithToken, loginDemo, isLoading, error, clearError, isAuthenticated } = useAuthStore();
+  const returnAfterLogin = useLoginReturn();
   const { theme, setTheme, initializeTheme } = useThemeStore(useShallow((s) => ({ theme: s.theme, setTheme: s.setTheme, initializeTheme: s.initializeTheme })));
   const { appName, jmapServerUrl: configuredServerUrl, oauthEnabled, oauthOnly, oauthClientId: globalOauthClientId, oauthIssuerUrl: globalOauthIssuerUrl, oauthScopes, rememberMeEnabled, devMode, demoMode, loginLogoLightUrl, loginLogoDarkUrl, loginCompanyName, loginImprintUrl, loginPrivacyPolicyUrl, loginWebsiteUrl, loginLogoMaxHeight, loginLogoMaxWidth, loginShowHeading, loginShowSubtitle, loginShowTotp, loginShowTokenLogin, loginShowRememberMe, loginShowVersion, isLoading: configLoading, error: configError, autoSsoEnabled, embeddedMode: _embeddedMode, allowCustomJmapEndpoint, jmapServers, jmapServerAutoPickByDomain } = useConfig();
   const resolvedTheme = useThemeStore((s) => s.resolvedTheme);
@@ -397,17 +399,9 @@ function LoginPageContent() {
     // sign-in sheet. handleSubmit offers the hand-off after they sign in
     // (isAuthenticated stays true, so this effect doesn't run again).
     if (action === "mailbox") {
-      let redirectTo = '/';
-      try {
-        const saved = sessionStorage.getItem('redirect_after_login');
-        if (saved) {
-          sessionStorage.removeItem('redirect_after_login');
-          redirectTo = saved;
-        }
-      } catch { /* ignore */ }
-      router.push(toRouterPath(redirectTo));
+      returnAfterLogin();
     }
-  }, [isAuthenticated, router, isAddAccountMode, isMobileHandoff, offerMobileHandoff]);
+  }, [isAuthenticated, returnAfterLogin, isAddAccountMode, isMobileHandoff, offerMobileHandoff]);
 
   useEffect(() => {
     clearError();
@@ -837,7 +831,7 @@ function LoginPageContent() {
       || (allowCustomJmapEndpoint ? jmapEndpoint : serverUrl);
     if (signInWithToken) {
       if (await loginWithToken(effectiveServerUrl, accessToken, persistSession)) {
-        router.push('/');
+        returnAfterLogin();
       }
       return;
     }
@@ -885,7 +879,7 @@ function LoginPageContent() {
         offerMobileHandoff();
         return;
       }
-      router.push('/');
+      returnAfterLogin();
     } else if (isMobileHandoff) {
       // Stale payload should never feed into a later retry's redirect.
       mobileHandoffPayloadRef.current = null;
@@ -898,15 +892,7 @@ function LoginPageContent() {
     // instead of bouncing to the login page.
     const success = await login(serverUrl, "dev@localhost", "dev", undefined, rememberMeEnabled);
     if (success) {
-      let redirectTo = '/';
-      try {
-        const saved = sessionStorage.getItem('redirect_after_login');
-        if (saved) {
-          sessionStorage.removeItem('redirect_after_login');
-          redirectTo = saved;
-        }
-      } catch { /* ignore */ }
-      router.push(toRouterPath(redirectTo));
+      returnAfterLogin();
     }
   };
 
@@ -914,7 +900,7 @@ function LoginPageContent() {
     setDemoLoading(true);
     const success = await loginDemo();
     if (success) {
-      router.push('/');
+      returnAfterLogin();
     }
     setDemoLoading(false);
   };
