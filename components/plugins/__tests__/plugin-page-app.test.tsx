@@ -27,6 +27,7 @@ const { PluginPageApp } = await import('../plugin-page-app');
 const registry = await import('@/lib/plugin-sandbox/registry');
 const pages = await import('@/lib/plugin-sandbox/pages');
 const { useAuthStore } = await import('@/stores/auth-store');
+const checkAuth = useAuthStore.getState().checkAuth;
 const { usePluginStore } = await import('@/stores/plugin-store');
 const { isFillableSlot } = await import('@/lib/plugin-sandbox/slot-layout');
 
@@ -46,7 +47,7 @@ function activate(id: string, slots: string[], fill = false) {
 
 beforeEach(() => {
   createSlotInstance.mockClear();
-  useAuthStore.setState({ isAuthenticated: true, isLoading: false, client: {} as never });
+  useAuthStore.setState({ isAuthenticated: true, isLoading: false, client: {} as never, checkAuth });
   usePluginStore.setState({ initialized: true, initializePlugins: vi.fn().mockResolvedValue(undefined) });
 });
 afterEach(() => {
@@ -55,6 +56,20 @@ afterEach(() => {
 });
 
 describe('plugin pages', () => {
+  it('hosts authenticated first-party content without requiring a plugin page registration', () => {
+    usePluginStore.setState({ initialized: false });
+    render(<PluginPageApp pageTitle="EuroOffice"><div>Owned Office page</div></PluginPageApp>);
+    expect(screen.getByText('Owned Office page')).toBeInTheDocument();
+    expect(screen.queryByText('not_available_title')).toBeNull();
+    expect(createSlotInstance).not.toHaveBeenCalled();
+  });
+
+  it('does not mount first-party content before authentication completes', () => {
+    useAuthStore.setState({ isAuthenticated: false, isLoading: true, client: null, checkAuth: vi.fn().mockResolvedValue(undefined) });
+    render(<PluginPageApp pageTitle="EuroOffice"><div>Owned Office page</div></PluginPageApp>);
+    expect(screen.queryByText('Owned Office page')).toBeNull();
+  });
+
   it('fills the content area with the plugin page and hands it the rest of the path', async () => {
     activate('kanban', ['app-page']);
     act(() => pages.setPluginPages('kanban', 'Kanban', [{ id: 'board', title: 'Board' }]));

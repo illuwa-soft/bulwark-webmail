@@ -6,6 +6,8 @@ import { readAppFrameOrigins, writeAppFrameOrigins } from '@/lib/security/app-fr
 import { sidebarAppHooks } from '@/lib/plugin-hooks';
 import { useAuthStore } from '@/stores/auth-store';
 import { isOfficeView, officeViewsActive, leaveOfficeViews } from '@/lib/eurooffice/lifecycle';
+import { OFFICE_PAGE_PATH } from '@/lib/eurooffice/page-path';
+import { usePathname, useRouter } from '@/i18n/navigation';
 
 export interface InlineAppState {
   id: string;
@@ -34,6 +36,8 @@ function takePendingInlineApp(): InlineAppState | null {
 }
 
 export function useSidebarApps() {
+  const router = useRouter();
+  const pathname = usePathname();
   const [showAppsModal, setShowAppsModal] = useState(false);
   const [inlineApp, setInlineApp] = useState<InlineAppState | null>(null);
   const [loadedApps, setLoadedApps] = useState<InlineAppState[]>([]);
@@ -101,6 +105,12 @@ export function useSidebarApps() {
     const openingAccount = useAuthStore.getState().activeAccountId;
     if (officeViewsActive() && !(await leaveOfficeViews('navigation'))) return;
     if (openingAccount !== useAuthStore.getState().activeAccountId) return;
+    if (isOfficeView(url)) {
+      setInlineApp(null);
+      setLoadedApps((apps) => apps.filter((app) => !isOfficeView(app.url)));
+      router.push(OFFICE_PAGE_PATH);
+      return;
+    }
     const app = { id: appId, url, name };
     const origin = appUrlToFrameOrigin(url);
     const applied = [...(appliedOriginsRef.current ?? readAppFrameOrigins()), ...managedOrigins];
@@ -124,15 +134,21 @@ export function useSidebarApps() {
     }
 
     openInlineApp(app);
-  }, [sidebarApps, managedOrigins, openInlineApp]);
+  }, [sidebarApps, managedOrigins, openInlineApp, router]);
 
   const closeInlineApp = useCallback(async () => {
+    const closingAccount = useAuthStore.getState().activeAccountId;
     if (officeViewsActive() && !(await leaveOfficeViews('navigation'))) return;
+    if (closingAccount !== useAuthStore.getState().activeAccountId) return;
+    if (pathname === OFFICE_PAGE_PATH && !inlineApp) {
+      router.push('/');
+      return;
+    }
     if (!keepAppsLoaded) {
       setLoadedApps((prev) => prev.filter((a) => a.id !== inlineApp?.id));
     }
     setInlineApp(null);
-  }, [keepAppsLoaded, inlineApp]);
+  }, [keepAppsLoaded, inlineApp, pathname, router]);
 
   const closeAppsModal = useCallback(() => {
     setShowAppsModal(false);

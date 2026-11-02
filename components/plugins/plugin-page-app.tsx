@@ -27,6 +27,10 @@ import { IS_LITE } from "@/lib/lite";
 export interface PluginPageAppProps {
   /** Path segments after `/apps`: `[pluginId, pageId, ...subPath]`. */
   linkSegments?: string[];
+  /** Optional first-party content uses the same authentication and navigation shell.
+   * 자체 앱 콘텐츠도 같은 인증·탐색 화면 틀을 사용합니다. */
+  children?: React.ReactNode;
+  pageTitle?: string;
 }
 
 /**
@@ -35,7 +39,7 @@ export interface PluginPageAppProps {
  * phone navigation) stays around it; the plugin's `app-page` slot fills the
  * content area and gets the rest of the path as `path`.
  */
-export function PluginPageApp({ linkSegments = [] }: PluginPageAppProps) {
+export function PluginPageApp({ linkSegments = [], children, pageTitle }: PluginPageAppProps) {
   const t = useTranslations("plugin_pages");
   const [pluginId = "", pageId = "", ...rest] = linkSegments;
   const subPath = rest.join("/");
@@ -66,7 +70,7 @@ export function PluginPageApp({ linkSegments = [] }: PluginPageAppProps) {
     () => offersForSlot("app-page").some((o) => o.pluginId === pluginId && o.fill),
     () => false,
   );
-  useDocumentTitle(page?.title ?? null);
+  useDocumentTitle(pageTitle ?? page?.title ?? null);
 
   useEffect(() => {
     const state = useAuthStore.getState();
@@ -122,6 +126,8 @@ export function PluginPageApp({ linkSegments = [] }: PluginPageAppProps) {
       </div>
     );
   }
+
+  if (children) content = children;
 
   return (
     <div className={cn("flex flex-col overflow-hidden pt-[env(safe-area-inset-top)]", mvShell ? "bg-[var(--mv-canvas)]" : "bg-background", isEmbedded ? "h-full" : "h-dvh")}>

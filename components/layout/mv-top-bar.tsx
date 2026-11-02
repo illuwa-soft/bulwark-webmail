@@ -38,6 +38,8 @@ import { usePluginPages, pluginPageHref, isPluginPageActive } from "@/hooks/use-
 import { NotificationBell } from "@/components/notifications/notification-center";
 import type { ContactSuggestion } from "@/lib/search-suggestions";
 import { confirmOfficeNavigation } from '@/lib/eurooffice/navigation';
+import { OFFICE_PAGE_PATH } from '@/lib/eurooffice/page-path';
+import { isOfficeView } from '@/lib/eurooffice/lifecycle';
 
 /** The top bar is not about any one item: plugin clicks carry no context. */
 const TOP_BAR_CONTEXT: Record<string, unknown> = {};
@@ -369,6 +371,7 @@ export function MvTopBar({
                 })}
                 {sidebarApps.map((app) => {
                   const AppIcon = iconForName(app.icon);
+                  const isActive = activeAppId === app.id || (!activeAppId && pathname === OFFICE_PAGE_PATH && isOfficeView(app.url));
                   return (
                     <button
                       key={app.id}
@@ -376,7 +379,7 @@ export function MvTopBar({
                       role="menuitem"
                       onClick={() => {
                         setAppsOpen(false);
-                        if (activeAppId === app.id) {
+                        if (isActive) {
                           onCloseInlineApp?.();
                         } else if (app.openMode === "tab") {
                           window.open(app.url, "_blank", "noopener,noreferrer");
@@ -386,7 +389,7 @@ export function MvTopBar({
                       }}
                       className={cn(
                         "flex flex-col items-center gap-1.5 rounded-lg py-3 px-1 text-center transition-colors hover:bg-muted",
-                        activeAppId === app.id && "bg-muted"
+                        isActive && "bg-muted"
                       )}
                     >
                       {AppIcon ? <AppIcon className="w-6 h-6 text-muted-foreground" /> : null}
