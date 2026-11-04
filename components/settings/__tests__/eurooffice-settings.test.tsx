@@ -75,7 +75,7 @@ afterEach(() => { cleanup(); officeQueries.clear(); vi.restoreAllMocks(); });
 it('does not probe Office when this host has not enabled the optional connector', async () => {
   capability.configured = false;
   render(<PluginsSettings />);
-  expect(await screen.findByRole('switch', { name: '이 계정에서 EuroOffice 사용' })).toBeDisabled();
+  expect(await screen.findByRole('switch', { name: '이 계정에서 Illuwa Office 사용' })).toBeDisabled();
   await act(async () => { await Promise.resolve(); });
   expect(transport).not.toHaveBeenCalled();
 });
@@ -91,7 +91,7 @@ it('does not rerender the sidebar observer for unrelated account metadata', () =
 
 it('keeps the actual Agent toggle independent of the server-owned Office switch', async () => {
   render(<PluginsSettings />);
-  const office = await screen.findByRole('switch', { name: '이 계정에서 EuroOffice 사용' });
+  const office = await screen.findByRole('switch', { name: '이 계정에서 Illuwa Office 사용' });
   await waitFor(() => expect(office).toHaveAttribute('aria-checked', 'true'));
   fireEvent.click(screen.getByRole('switch', { name: /Illuwa Agent/ }));
   expect(usePluginStore.getState().plugins[0].enabled).toBe(false);
@@ -115,9 +115,9 @@ it('rejects a stale toggle after the account changes while the document is closi
   const unregister = registerOfficeFrame(peer);
   try {
     render(<PluginsSettings />);
-    await waitFor(() => expect(screen.getByRole('switch', { name: '이 계정에서 EuroOffice 사용' })).toHaveAttribute('aria-checked', 'true'));
+    await waitFor(() => expect(screen.getByRole('switch', { name: '이 계정에서 Illuwa Office 사용' })).toHaveAttribute('aria-checked', 'true'));
     window.dispatchEvent(new MessageEvent('message', { source: peer, origin: location.origin, data: { source: 'office-app', event: 'ready' } }));
-    fireEvent.click(screen.getByRole('switch', { name: '이 계정에서 EuroOffice 사용' }));
+    fireEvent.click(screen.getByRole('switch', { name: '이 계정에서 Illuwa Office 사용' }));
     await waitFor(() => expect(send).toHaveBeenCalled());
     const request = send.mock.calls[0][0] as { requestId: string };
     act(() => select('b', 'other@example.test'));
@@ -130,12 +130,12 @@ it('rejects a stale toggle after the account changes while the document is closi
 
 it('restores each account switch independently instead of sharing one browser-global preference', async () => {
   const view = render(<PluginsSettings />);
-  await waitFor(() => expect(screen.getByRole('switch', { name: '이 계정에서 EuroOffice 사용' })).toHaveAttribute('aria-checked', 'true'));
+  await waitFor(() => expect(screen.getByRole('switch', { name: '이 계정에서 Illuwa Office 사용' })).toHaveAttribute('aria-checked', 'true'));
   act(() => select('b', 'other@example.test'));
   view.rerender(<PluginsSettings />);
   await waitFor(() => expect(screen.getByText('other@example.test')).toBeInTheDocument());
-  expect(screen.getByRole('switch', { name: '이 계정에서 EuroOffice 사용' })).toHaveAttribute('aria-checked', 'false');
-  fireEvent.click(screen.getByRole('switch', { name: '이 계정에서 EuroOffice 사용' }));
+  expect(screen.getByRole('switch', { name: '이 계정에서 Illuwa Office 사용' })).toHaveAttribute('aria-checked', 'false');
+  fireEvent.click(screen.getByRole('switch', { name: '이 계정에서 Illuwa Office 사용' }));
   await waitFor(() => expect(enabled[1]).toBe(true));
   expect(enabled[0]).toBe(true);
 });

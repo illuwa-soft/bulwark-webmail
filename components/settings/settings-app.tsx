@@ -47,6 +47,8 @@ import { AccountSecuritySettings } from '@/components/settings/account-security-
 import { FilesSettingsComponent } from '@/components/settings/files-settings';
 import { ContactsSettings } from '@/components/settings/contacts-settings';
 import { AddonsSettings } from '@/components/settings/addons-settings';
+import { EuroOfficeSettings } from '@/components/settings/eurooffice-settings';
+import { IS_LITE } from '@/lib/lite';
 import { NotificationSettings } from '@/components/settings/notification-settings';
 import { PluginIframeSlot } from '@/components/plugins/plugin-iframe-slot';
 import { offersForSlot as pluginOffersForSlot, subscribe as pluginRegistrySubscribe, get as getActivePlugin } from '@/lib/plugin-sandbox/registry';
@@ -103,7 +105,7 @@ type PluginTabId = `plugin:${string}`;
 // A plugin that offers a `settings-page` slot gets a page of its own under the
 // "Plugins" group, keyed `plugin-page:<id>`, drawn at the full content width.
 type PluginPageTabId = `plugin-page:${string}`;
-type SettingsTabId = Tab | PluginTabId | PluginPageTabId;
+type SettingsTabId = Tab | 'office' | PluginTabId | PluginPageTabId;
 const PLUGIN_PAGE_PREFIX = 'plugin-page:';
 
 interface TabDef {
@@ -115,7 +117,7 @@ interface TabDef {
   sub?: boolean;
 }
 
-const tabIcons: Record<Tab, AppIcon> = {
+const tabIcons: Record<Tab | 'office', AppIcon> = {
   account: User,
   general: SettingsIcon,
   notifications: Bell,
@@ -131,6 +133,7 @@ const tabIcons: Record<Tab, AppIcon> = {
   contacts: BookUser,
   files: HardDrive,
   addons: Puzzle,
+  office: Puzzle,
   backup: Database,
 };
 
@@ -651,6 +654,7 @@ export function SettingsApp({ linkSegments: routeSegments }: SettingsAppProps = 
     ...(isFeatureEnabled('contactsEnabled') ? [{ id: 'contacts' as Tab, label: t('tabs.contacts'), icon: tabIcons.contacts, group: 'apps' as TabGroup }] : []),
     ...(supportsFiles && isFeatureEnabled('filesEnabled') ? [{ id: 'files' as Tab, label: t('tabs.files'), icon: tabIcons.files, group: 'apps' as TabGroup }] : []),
     ...(isFeatureEnabled('sidebarAppsEnabled') || isFeatureEnabled('pluginsEnabled') ? [{ id: 'addons' as Tab, label: t('tabs.addons'), icon: tabIcons.addons, group: 'apps' as TabGroup }] : []),
+    ...(!IS_LITE && euroOfficeConfigured && isFeatureEnabled('pluginsEnabled') ? [{ id: 'office' as const, label: 'Illuwa Office', icon: tabIcons.office, group: 'apps' as const, sub: true }] : []),
     // Plugin-contributed pages nest under Add-ons: a page of its own for each
     // plugin that offers one, and an entry for each plugin that offers only a
     // `settings-section` slot (e.g. S/MIME key & certificate manager). A plugin
@@ -795,6 +799,7 @@ export function SettingsApp({ linkSegments: routeSegments }: SettingsAppProps = 
       )}
       {effectiveActiveTab === 'files' && <FilesSettingsComponent />}
       {effectiveActiveTab === 'addons' && <AddonsSettings />}
+      {effectiveActiveTab === 'office' && <EuroOfficeSettings configured={euroOfficeConfigured === true} />}
       {effectiveActiveTab === 'backup' && <AboutDataSettings />}
       {effectiveActiveTab.startsWith('plugin:') && (
         <PluginIframeSlot
