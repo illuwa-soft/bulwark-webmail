@@ -13,16 +13,16 @@ import type { QueryKey } from '@tanstack/react-query';
 import { ToggleSwitch } from './settings-section';
 
 const english = {
-  enabled: 'Enable EuroOffice for this account', consent: 'Enabling grants Office its own Native file access for this account until you disable it or revoke access. Your mail password is not stored.',
+  enabled: 'Enable Illuwa Office for this account', consent: 'Enabling grants Office its own Native file access for this account until you disable it or revoke access. Your mail password is not stored.',
   setup: 'The installation administrator configures one shared editor server. Files and activation stay separate for every account.',
   hostSetup: 'The operator must configure the webmail server connector before enabling this account.',
-  server: 'EuroOffice server URL', header: 'JWT header', secret: 'JWT signing key (leave blank to retain)', save: 'Save shared settings', test: 'Test connection', saved: 'Shared signing key configured', close: 'Save and close the Office document before continuing.', loading: 'Checking this account…'
+  server: 'Editor server URL', header: 'JWT header', secret: 'JWT signing key (leave blank to retain)', save: 'Save shared settings', test: 'Test connection', saved: 'Shared signing key configured', close: 'Save and close the Office document before continuing.', loading: 'Checking this account…'
 };
 const korean: typeof english = {
-  enabled: '이 계정에서 EuroOffice 사용', consent: '활성화하면 이 계정의 파일 접근용 Office 서비스 권한을 발급합니다. 비활성화하거나 권한을 폐기할 때까지 유지하며 메일 비밀번호는 저장하지 않습니다.',
+  enabled: '이 계정에서 Illuwa Office 사용', consent: '활성화하면 이 계정의 파일 접근용 Office 서비스 권한을 발급합니다. 비활성화하거나 권한을 폐기할 때까지 유지하며 메일 비밀번호는 저장하지 않습니다.',
   setup: '설치 관리자가 편집 서버를 한 번 등록합니다. 활성화 상태와 파일함은 계정마다 분리됩니다.',
   hostSetup: '운영자가 웹메일 서버의 게이트웨이 연결을 설정해야 계정별로 활성화할 수 있습니다.',
-  server: 'EuroOffice 서버 주소', header: 'JWT 헤더', secret: 'JWT 서명키 (비워 두면 기존 값 유지)', save: '공통 설정 저장', test: '연결 검사', saved: '공통 서명키 등록됨', close: '열린 Office 문서를 저장하고 닫은 뒤 다시 시도해 주세요.', loading: '현재 계정을 확인하고 있습니다…'
+  server: '편집 서버 주소', header: 'JWT 헤더', secret: 'JWT 서명키 (비워 두면 기존 값 유지)', save: '공통 설정 저장', test: '연결 검사', saved: '공통 서명키 등록됨', close: '열린 Office 문서를 저장하고 닫은 뒤 다시 시도해 주세요.', loading: '현재 계정을 확인하고 있습니다…'
 };
 
 export function EuroOfficeSettings({ configured }: { configured: boolean }) {
@@ -45,8 +45,8 @@ export function EuroOfficeSettings({ configured }: { configured: boolean }) {
     retry: false, gcTime: 0
   }, officeQueries);
   if (!accountId) return null;
-  return <section data-eurooffice-integration data-search-label="EuroOffice" className="mb-4 space-y-3 rounded-lg border border-border p-3">
-    <div className="flex items-center justify-between gap-3"><h3 className="font-semibold">EuroOffice</h3>
+  return <section data-eurooffice-integration data-search-label="Illuwa Office" className="mb-4 space-y-3 rounded-lg border border-border p-3">
+    <div className="flex items-center justify-between gap-3"><h3 className="font-semibold">Illuwa Office</h3>
       <ToggleSwitch checked={ready && query.data?.enabled === true} disabled={!ready || !query.data || toggle.isPending} onChange={() => toggle.mutate()} ariaLabel={copy.enabled} />
     </div>
     <p className="text-xs text-muted-foreground">{copy.setup}</p>

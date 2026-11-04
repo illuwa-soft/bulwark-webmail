@@ -40,7 +40,7 @@ it('does not activate a disabled account when its permalink is visited', () => {
   state.office.query.data!.enabled = false;
   render(<OfficePageContent />);
   expect(screen.queryByTitle('EuroOffice')).toBeNull();
-  expect(screen.getByRole('link', { name: 'Open Office settings' })).toHaveAttribute('href', '/settings/addons');
+  expect(screen.getByRole('link', { name: 'Open Office settings' })).toHaveAttribute('href', '/settings/office');
 });
 
 it('removes the previous account frame while resolving another account', () => {

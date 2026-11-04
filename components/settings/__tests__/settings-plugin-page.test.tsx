@@ -23,7 +23,9 @@ vi.mock('@/hooks/use-media-query', () => ({
   useMediaQuery: () => false,
   useDeviceDetection: () => ({ isMobile: false, isTablet: false, isDesktop: true }),
 }));
-vi.mock('@/hooks/use-config', () => ({ useConfig: () => ({ appName: 'Mail', stalwartFeaturesEnabled: false }) }));
+const officeCapability = vi.hoisted(() => ({ configured: false }));
+vi.mock('@/hooks/use-config', () => ({ useConfig: () => ({ appName: 'Mail', stalwartFeaturesEnabled: false, euroOfficeConfigured: officeCapability.configured }) }));
+vi.mock('@/components/settings/eurooffice-settings', () => ({ EuroOfficeSettings: () => <div>Office connection surface</div> }));
 vi.mock('@/components/layout/navigation-rail', () => ({ NavigationRail: () => null }));
 vi.mock('@/components/layout/sidebar-apps-modal', () => ({ SidebarAppsModal: () => null }));
 vi.mock('@/components/plugins/app-top-banner-slot', () => ({ AppTopBannerSlot: () => null }));
@@ -34,6 +36,7 @@ const registry = await import('@/lib/plugin-sandbox/registry');
 const { useAuthStore } = await import('@/stores/auth-store');
 const { usePluginStore } = await import('@/stores/plugin-store');
 const { useThemeStore } = await import('@/stores/theme-store');
+const { usePolicyStore } = await import('@/stores/policy-store');
 
 function activate(id: string, name: string, slots: string[]) {
   const plugin: InstalledPlugin = {
@@ -50,6 +53,9 @@ function activate(id: string, name: string, slots: string[]) {
 }
 
 beforeEach(() => {
+  officeCapability.configured = false;
+  const policy = usePolicyStore.getState().policy;
+  usePolicyStore.setState({ policy: { ...policy, features: { ...policy.features, pluginsEnabled: true } } });
   createSlotInstance.mockClear();
   vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Unexpected network request')));
   try { localStorage.setItem('settings-active-tab', 'appearance'); } catch { /* ignore */ }
@@ -67,6 +73,40 @@ afterEach(() => {
 });
 
 describe('Settings plugin pages', () => {
+  it('exposes Office below Add-ons without requiring a plugin or installation administrator', () => {
+    officeCapability.configured = true;
+    render(<SettingsApp linkSegments={[]} />);
+    const entry = screen.getByTestId('settings-tab-office');
+    expect(screen.getByTestId('settings-tab-addons').compareDocumentPosition(entry) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(entry).toHaveTextContent('Illuwa Office');
+    expect(entry.className).toContain('ps-9');
+    fireEvent.click(entry);
+    expect(screen.getByText('Office connection surface')).toBeVisible();
+    expect(createSlotInstance).not.toHaveBeenCalled();
+  });
+
+  it('opens the account Office surface directly from /settings/office', () => {
+    officeCapability.configured = true;
+    render(<SettingsApp linkSegments={['office']} />);
+    expect(screen.getByText('Office connection surface')).toBeVisible();
+  });
+
+  it('keeps an unconfigured Office entry hidden and refuses a blank direct-link pane', () => {
+    render(<SettingsApp linkSegments={['office']} />);
+    expect(screen.queryByTestId('settings-tab-office')).not.toBeInTheDocument();
+    expect(screen.queryByText('Office connection surface')).not.toBeInTheDocument();
+    expect(screen.getByText('appearance pane')).toBeVisible();
+  });
+
+  it('hides the Office entry when the operator disables host integrations', () => {
+    officeCapability.configured = true;
+    const policy = usePolicyStore.getState().policy;
+    usePolicyStore.setState({ policy: { ...policy, features: { ...policy.features, pluginsEnabled: false } } });
+    render(<SettingsApp linkSegments={['office']} />);
+    expect(screen.queryByTestId('settings-tab-office')).not.toBeInTheDocument();
+    expect(screen.queryByText('Office connection surface')).not.toBeInTheDocument();
+  });
+
   it('nests a plugin with only a section under Add-ons', () => {
     activate('smime', 'S/MIME', ['settings-section']);
     render(<SettingsApp linkSegments={[]} />);
